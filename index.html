@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>当直・日直シフト作成 改</title>
+<title>当直シフト作成</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
@@ -223,7 +223,7 @@ td.hope-assigned { background: #FFF8E1 !important; }
 
 <div class="container">
   <header>
-    <h1>当直・日直シフト作成 改</h1>
+    <h1>当直シフト作成</h1>
     <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;">
       <div style="display:flex;gap:4px;align-items:center;padding-right:8px;border-right:1px solid var(--border);">
         <span style="font-size:11px;color:var(--text-muted);white-space:nowrap;">ブラウザ保存</span>
@@ -366,7 +366,7 @@ td.hope-assigned { background: #FFF8E1 !important; }
       <div style="background:var(--surface);border-radius:8px;box-shadow:0 1px 3px rgba(0,0,0,.06);overflow:hidden;">
         <div style="background:var(--primary);color:#fff;padding:10px 16px;font-size:14px;font-weight:700;">③ メンバー設定</div>
         <div style="padding:14px 16px;font-size:13px;line-height:1.9;">
-          <p><strong>年次：</strong>各メンバーの年次（1年目 / 2年目）を設定します。年次が異なるメンバー同士は同じ枠に入れず、手動交換の候補にも出ません。</p>
+          <p><strong>年次：</strong>各メンバーの年次（1年目 / 2年目）を設定します。2年目同士は同じ枠に入れず、手動交換の候補にも出ません。</p>
           <p style="margin-top:6px;"><strong>平日回数 / 休日回数：</strong>そのメンバーが1ヶ月に担当する平日当直・休日勤務の回数です。生成時に必ずこの回数になるよう調整されます。</p>
           <p style="margin-top:6px;"><strong>メンバーの追加：</strong>下部フォームで名前・年次を選び「＋ 追加」で登録できます。</p>
           <p style="margin-top:6px;"><strong>メンバーの削除：</strong>各行の「削除」ボタンで削除できます。そのメンバーのNG日設定も同時に消去されます。</p>
@@ -462,13 +462,13 @@ td.hope-assigned { background: #FFF8E1 !important; }
         <li><span class="rule-icon hard">1</span><div><strong>平日は当直のみ</strong><br>平日には日直枠はなく、当直のみ（最大2名）が配置されます。</div></li>
         <li><span class="rule-icon hard">2</span><div><strong>休日は日直＋当直</strong><br>標準モードでは日直2名＋当直1〜2名、例外モードでは日直1〜2名＋当直1名で配置されます。</div></li>
         <li><span class="rule-icon hard">3</span><div><strong>休日モード</strong><br>休日回数が標準範囲なら日直2名固定です。標準必要数に足りない場合だけ、例外として日直1名の日を許可します。</div></li>
-        <li><span class="rule-icon hard">4</span><div><strong>2年目以上同士の同枠禁止</strong><br>日直・当直いずれの枠でも、2年目以上から2名が同じ枠に入ることはありません。</div></li>
+        <li><span class="rule-icon hard">4</span><div><strong>2年目同士の同枠禁止</strong><br>日直・当直いずれの枠でも、2年目から2名が同じ枠に入ることはありません。</div></li>
         <li><span class="rule-icon hard">5</span><div><strong>当直後は中3日</strong><br>当直の翌日から3日間は次の勤務に入れません。（例: 月曜当直 → 金曜から可）</div></li>
         <li><span class="rule-icon hard">6</span><div><strong>日直後は中2日</strong><br>日直の翌日から2日間は次の勤務に入れません。（例: 土曜日直 → 火曜から可）</div></li>
         <li><span class="rule-icon hard">7</span><div><strong>同日の日直・当直兼任禁止</strong><br>同じ日に日直と当直の両方に入ることはできません。</div></li>
         <li><span class="rule-icon hard">8</span><div><strong>NG日は絶対不可</strong><br>NGと設定された日には、いかなる場合もシフトを入れません。</div></li>
-        <li><span class="rule-icon hard">9</span><div><strong>平日金曜当直は1年目1人のみ</strong><br>金曜日が平日の場合、当直は必ず1年目1人のみです。2年目以上や1年目2人は不可です。</div></li>
-        <li><span class="rule-icon soft">10</span><div><strong>2年目以上単独はなるべく回避</strong><br>2年目以上が1人だけで入る枠は内部評価でなるべく減らします。</div></li>
+        <li><span class="rule-icon hard">9</span><div><strong>平日金曜当直は1年目1人のみ</strong><br>金曜日が平日の場合、当直は必ず1年目1人のみです。2年目や1年目2人は不可です。</div></li>
+        <li><span class="rule-icon soft">10</span><div><strong>2年目単独は内部評価で回避</strong><br>2年目が1人だけで入る枠は内部評価でなるべく減らします。</div></li>
         <li><span class="rule-icon soft">11</span><div><strong>希望休はなるべく回避</strong><br>希望休と設定された日はなるべく避けますが、やむを得ない場合は入れることがあります。</div></li>
         <li><span class="rule-icon hard">12</span><div><strong>設定した勤務回数は必ず守る</strong><br>各メンバーに設定した平日・休日の回数は必ず守ります。合計回数は、平日・休日それぞれの許容範囲内で生成します。</div></li>
         <li><span class="rule-icon hard">13</span><div><strong>全スロット最低1名</strong><br>すべてのスロットに最低1名は配置されます（0名の日は発生しません）。</div></li>
@@ -511,13 +511,13 @@ let state = {
   swapHistory: [], // [{label, schedule, stats, warnings, lastSwap}] 交換履歴
 };
 
-// year から group を導出（2年目以上 → "A"、1年目 → "B"）
+// year から group を導出（2年目 → "A"、1年目 → "B"）
 function yearToGroup(year) { return year >= 2 ? "A" : "B"; }
 
 function initMembers() {
   state.members = [];
-  MEMBERS_A.forEach(n => state.members.push({ name: n, year: 2, weekdayTarget: 2, holidayTarget: 2, weekdayNightNg: {} }));
-  MEMBERS_B.forEach(n => state.members.push({ name: n, year: 1, weekdayTarget: 2, holidayTarget: 2, weekdayNightNg: {} }));
+  MEMBERS_A.forEach(n => state.members.push({ name: n, year: 2, weekdayTarget: 2, holidayTarget: 2, weekdayNightNg: {}, department: "" }));
+  MEMBERS_B.forEach(n => state.members.push({ name: n, year: 1, weekdayTarget: 2, holidayTarget: 2, weekdayNightNg: {}, department: "" }));
 }
 initMembers();
 
@@ -1131,7 +1131,7 @@ function checkSwapValid(iso1, type1, idx1, name1, iso2, type2, idx2, name2, temp
   if (s1[otherType] && s1[otherType].includes(name2)) return false;
   if (s2[otherType] && s2[otherType].includes(name1)) return false;
 
-  // 金曜・同枠ルール（年次ベース: 2年目以上 → 旧Aグループ相当）
+  // 金曜・同枠ルール（年次ベース: 2年目 → 旧Aグループ相当）
   const memberGroup = {};
   state.members.forEach(m => memberGroup[m.name] = yearToGroup(m.year));
   if (isFriday(date1) && !isHoliday(date1) && memberGroup[name2] === "A") return false;
@@ -1622,7 +1622,7 @@ function renderMemberTable() {
   state.members.forEach((m, i) => {
     const yrCls = (m.year ?? 1) >= 2 ? ' class="group-a"' : '';
     html += `<tr><td>${i+1}</td><td>${m.name}</td>`;
-    html += `<td${yrCls}><select onchange="updateMember(${i},'year',this.value)" style="width:100px;border:1px solid var(--border);border-radius:4px;padding:4px;font-size:13px;"><option value="1" ${(m.year??1)===1?'selected':''}>1年目</option><option value="2" ${(m.year??1)>=2?'selected':''}>2年目以上</option></select></td>`;
+    html += `<td${yrCls}><select onchange="updateMember(${i},'year',this.value)" style="width:100px;border:1px solid var(--border);border-radius:4px;padding:4px;font-size:13px;"><option value="1" ${(m.year??1)===1?'selected':''}>1年目</option><option value="2" ${(m.year??1)>=2?'selected':''}>2年目</option></select></td>`;
     html += `<td><input type="number" min="0" max="10" value="${m.weekdayTarget}" oninput="updateMember(${i},'weekday',this.value)"></td>`;
     html += `<td><input type="number" min="0" max="10" value="${m.holidayTarget}" oninput="updateMember(${i},'holiday',this.value)"></td>`;
     html += `<td><button class="btn btn-outline btn-sm" onclick="removeMember(${i})" style="color:#B71C1C;border-color:#FFCDD2;">削除</button></td></tr>`;
@@ -1634,7 +1634,7 @@ function renderMemberTable() {
     <input type="text" id="new-member-name" placeholder="名前" style="padding:6px 10px;border:1px solid var(--border);border-radius:6px;font-size:14px;width:130px;">
     <select id="new-member-year" style="padding:6px 10px;border:1px solid var(--border);border-radius:6px;font-size:14px;">
       <option value="1">1年目</option>
-      <option value="2">2年目以上</option>
+      <option value="2">2年目</option>
     </select>
     <button class="btn btn-primary" onclick="addMember()">＋ 追加</button>
   </div>`;
@@ -1648,7 +1648,7 @@ function addMember() {
   const year = parseInt(yearSelect.value) || 1;
   if (!name) { alert("名前を入力してください"); return; }
   if (state.members.some(m => m.name === name)) { alert(`「${name}」はすでに登録されています`); return; }
-  state.members.push({ name, year, weekdayTarget: 2, holidayTarget: 2, weekdayNightNg: {} });
+  state.members.push({ name, year, weekdayTarget: 2, holidayTarget: 2, weekdayNightNg: {}, department: "" });
   renderMemberTable();
   renderNGTable();
 }
@@ -1997,7 +1997,11 @@ function showToast(msg) {
 // ═══════════════════════════════════════
 // カスタム版: 共通ルール判定・数字入力・手動編集
 // ═══════════════════════════════════════
-function gradeLabel(year) { return (year ?? 1) >= 2 ? "2年目以上" : "1年目"; }
+function escapeHTML(value) {
+  return String(value ?? "").replace(/[&<>"']/g, ch => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;" }[ch]));
+}
+function escapeAttr(value) { return escapeHTML(value); }
+function gradeLabel(year) { return (year ?? 1) >= 2 ? "2年目" : "1年目"; }
 function dutyLabel(type) { return type === "day_duty" ? "日直" : "当直"; }
 function slotLabel(iso, type) {
   const d = new Date(iso + "T00:00:00");
@@ -2079,7 +2083,9 @@ function getNGReason(name, dateOrISO, type) {
   if (state.ngDays[autoKey] === "NG") return "前回シフト由来NG";
   const weekdayReason = weekdayNightNgLabel(name, date, type);
   if (weekdayReason) return weekdayReason;
-  if (state.ngDays[ngKey(name, date, type)] === "NG" || state.ngDays[ngKey(name, date)] === "NG") return "NG";
+  const typedKey = ngKey(name, date, type);
+  const legacyKey = ngKey(name, date);
+  if (state.ngDays[typedKey] === "NG" || state.ngDays[legacyKey] === "NG") return state.ngReasons?.[typedKey] || state.ngReasons?.[legacyKey] || "NG";
   return "";
 }
 function setNGValue(name, iso, type, value, source) {
@@ -2087,6 +2093,12 @@ function setNGValue(name, iso, type, value, source) {
   const key = ngKey(name, date, type) + (source === "auto_prev" ? "_auto_prev" : "");
   if (value) state.ngDays[key] = value;
   else delete state.ngDays[key];
+}
+function setNGReason(name, iso, type, reason) {
+  const date = new Date(iso + "T00:00:00");
+  const key = ngKey(name, date, type);
+  if (reason) state.ngReasons[key] = reason;
+  else delete state.ngReasons[key];
 }
 function clearSourceForMember(name, source, kind) {
   const suffix = source === "auto_prev" ? "_auto_prev" : "";
@@ -2100,6 +2112,13 @@ function clearSourceForMember(name, source, kind) {
 function normalizeCustomState() {
   state.ngInputs = state.ngInputs || {};
   state.hopeInputs = state.hopeInputs || {};
+  state.naturalNgInputs = state.naturalNgInputs || {};
+  state.naturalHopeInputs = state.naturalHopeInputs || {};
+  state.naturalParseResults = state.naturalParseResults || {};
+  state.bulkImportText = state.bulkImportText || "";
+  state.bulkImportPreview = state.bulkImportPreview || null;
+  state.ngReasons = state.ngReasons || {};
+  state.bulkManagedWeekdayNg = state.bulkManagedWeekdayNg || [];
   state.previousInputs = state.previousInputs || {};
   state.previousSelections = state.previousSelections || {};
   state.previousWeekdayDayVisible = state.previousWeekdayDayVisible || {};
@@ -2111,8 +2130,11 @@ function normalizeCustomState() {
     if (m.weekdayTarget === undefined || m.weekdayTarget === null) m.weekdayTarget = 2;
     if (m.holidayTarget === undefined || m.holidayTarget === null) m.holidayTarget = 2;
     m.weekdayNightNg = m.weekdayNightNg || {};
+    m.department = m.department || "";
     if (!state.ngInputs[m.name]) state.ngInputs[m.name] = "";
     if (!state.hopeInputs[m.name]) state.hopeInputs[m.name] = "";
+    if (!state.naturalNgInputs[m.name]) state.naturalNgInputs[m.name] = "";
+    if (!state.naturalHopeInputs[m.name]) state.naturalHopeInputs[m.name] = "";
     if (!state.previousInputs[m.name]) state.previousInputs[m.name] = "";
     if (!state.previousSelections[m.name]) state.previousSelections[m.name] = {};
   });
@@ -2250,10 +2272,163 @@ function parseSlotInput(text, mode, memberName) {
   });
   return { items, warnings };
 }
+function isNoneText(text) {
+  return /^(特になし。?|特に無し。?|なし|無し|それ以外のオフ希望[:：]?特になし。?)$/i.test(String(text || "").trim());
+}
+function stripWeekdayText(text) {
+  return String(text || "").replace(/[（(]?[月火水木金土日]曜?[日]?[）)]?/g, "").trim();
+}
+function dutyTypesFromText(text, defaultTypes) {
+  const t = stripWeekdayText(text).replace(/\s+/g, "");
+  if (/日直[・\/／]?当直|日直当直|日当直|日当|両方|日・当直|日\/当直|日／当直/.test(t)) return ["day_duty", "night_duty"];
+  const hasDay = /日直|昼/.test(t) || /(^|[^曜])日([^曜]|$)/.test(t);
+  const hasNight = /当直|夜勤|夜|(^|[^日])当([^日]|$)/.test(t);
+  if (hasDay && hasNight) return ["day_duty", "night_duty"];
+  if (hasDay) return ["day_duty"];
+  if (hasNight) return ["night_duty"];
+  return defaultTypes;
+}
+function textHasDuty(text) {
+  return dutyTypesFromText(text, []).length > 0;
+}
+function inferDateFromMonthDay(month, day, lastMonth) {
+  const months = [];
+  const start = new Date(state.startDate);
+  const end = new Date(state.endDate);
+  for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+    const m = d.getMonth() + 1;
+    if (!months.includes(m)) months.push(m);
+  }
+  const useMonth = month || lastMonth || months.find(m => {
+    const y = (m < start.getMonth() + 1 && end.getFullYear() > start.getFullYear()) ? end.getFullYear() : start.getFullYear();
+    const dt = new Date(y, m - 1, day);
+    return dt >= start && dt <= end;
+  }) || (start.getMonth() + 1);
+  const year = (useMonth < start.getMonth() + 1 && end.getFullYear() > start.getFullYear()) ? end.getFullYear() : start.getFullYear();
+  return new Date(year, useMonth - 1, day);
+}
+function topLevelDateMatches(text) {
+  const src = String(text || "");
+  const matches = [];
+  const re = /(?:(\d{1,2})\s*[\/月\-.]\s*(\d{1,2})日?|(\d{1,2})日?)(?:\s*(?:-|〜|～|から)\s*(?:(\d{1,2})\s*[\/月\-.]\s*)?(\d{1,2})日?)?/g;
+  let depth = 0;
+  for (let i = 0; i < src.length; i++) {
+    const ch = src[i];
+    if (ch === "(" || ch === "（") depth++;
+    if (ch === ")" || ch === "）") depth = Math.max(0, depth - 1);
+    re.lastIndex = i;
+    const m = re.exec(src);
+    if (depth === 0 && m && m.index === i) {
+      matches.push({ match: m, start: i, end: re.lastIndex });
+      i = re.lastIndex - 1;
+    }
+  }
+  return matches;
+}
+function expandDateMatch(match, lastMonth) {
+  const m = match;
+  const month = m[1] ? Number(m[1]) : null;
+  const day = Number(m[2] || m[3]);
+  const endMonth = m[4] ? Number(m[4]) : (month || lastMonth);
+  const endDay = m[5] ? Number(m[5]) : null;
+  const dates = [];
+  const startDate = inferDateFromMonthDay(month, day, lastMonth);
+  if (!endDay) return { dates: [startDate], lastMonth: month || lastMonth || (startDate.getMonth() + 1) };
+  const finish = inferDateFromMonthDay(endMonth, endDay, month || lastMonth || (startDate.getMonth() + 1));
+  for (let d = new Date(startDate); d <= finish; d.setDate(d.getDate() + 1)) dates.push(new Date(d));
+  return { dates, lastMonth: endMonth || month || lastMonth || (startDate.getMonth() + 1) };
+}
+function extractParenTexts(text) {
+  return [...String(text || "").matchAll(/[（(]([^（）()]*)[）)]/g)].map(m => m[1].trim()).filter(Boolean);
+}
+function outsideReason(text) {
+  let t = String(text || "")
+    .replace(/[（(][^（）()]*[）)]/g, "")
+    .replace(/[、，,;；.。]/g, " ")
+    .replace(/[月火水木金土日]曜?日?/g, " ")
+    .replace(/日直[・\/／]?当直|日直当直|日当直|日当|日直|当直|夜勤|夜|昼|両方/g, " ")
+    .trim();
+  return t || "";
+}
+function parseWeekdayNgText(text) {
+  const keys = new Set();
+  const src = String(text || "");
+  const map = { "日":"sun", "月":"mon", "火":"tue", "水":"wed", "木":"thu", "金":"fri", "土":"sat" };
+  [...src.matchAll(/([日月火水木金土])曜(?:日)?(?:\s*当直|\s*当)?/g)].forEach(m => keys.add(map[m[1]]));
+  if (/ルール[:：]/.test(src) || !topLevelDateMatches(src).length) {
+    [...src.matchAll(/([日月火水木金土])曜(?:日)?/g)].forEach(m => keys.add(map[m[1]]));
+  }
+  return [...keys];
+}
+function parseNaturalText(text, mode, memberName) {
+  const result = { items: [], warnings: [], weekdayNg: [] };
+  const raw = String(text || "").trim();
+  if (!raw || isNoneText(raw)) return result;
+  if (mode === "ng") result.weekdayNg = parseWeekdayNgText(raw);
+  const matches = topLevelDateMatches(raw);
+  let lastMonth = null;
+  let lastItems = [];
+  matches.forEach((entry, idx) => {
+    const nextStart = matches[idx + 1]?.start ?? raw.length;
+    const context = raw.slice(entry.end, nextStart);
+    const expanded = expandDateMatch(entry.match, lastMonth);
+    lastMonth = expanded.lastMonth;
+    const parens = extractParenTexts(context);
+    const parenDuty = parens.find(textHasDuty) || "";
+    const reasonFromParen = mode === "ng" ? (parens.find(p => !textHasDuty(p)) || "") : "";
+    const reason = mode === "ng" ? (reasonFromParen || outsideReason(context)) : "";
+    const defaultTypes = mode === "hope" ? ["night_duty"] : [];
+    const explicitTypes = dutyTypesFromText(`${parenDuty} ${outsideReason(context)}`, defaultTypes);
+    expanded.dates.forEach(date => {
+      if (date < state.startDate || date > state.endDate) {
+        result.warnings.push(`${memberName}: ${fmtJP(date)}は期間外のため無視しました`);
+        return;
+      }
+      const types = mode === "ng" && explicitTypes.length === 0
+        ? (isHoliday(date) ? ["day_duty", "night_duty"] : ["night_duty"])
+        : explicitTypes;
+      types.forEach(type => result.items.push({ date, iso: fmtISO(date), type, reason }));
+    });
+    if (reason && lastItems.length && /^[\s、，,;；.。]*$/.test(raw.slice(matches[idx - 1]?.end || 0, entry.start))) {
+      lastItems.forEach(item => { if (!item.reason) item.reason = reason; });
+    }
+    lastItems = result.items.slice(-expanded.dates.length * Math.max(1, explicitTypes.length || 1));
+  });
+  if (!matches.length && raw && !result.weekdayNg.length) result.warnings.push(`${memberName}: 自然文「${raw.slice(0, 30)}」を解釈できません`);
+  return result;
+}
+function naturalSummary(parsed, mode) {
+  const lines = [];
+  const grouped = new Map();
+  parsed.items.forEach(item => {
+    const key = `${item.iso}|${item.reason || ""}`;
+    if (!grouped.has(key)) grouped.set(key, { date: item.date, types: [], reason: item.reason });
+    grouped.get(key).types.push(item.type);
+  });
+  grouped.forEach(v => {
+    const label = v.types.includes("day_duty") && v.types.includes("night_duty") ? "日直" + (mode === "ng" ? "NG" : "希望") + "・当直" + (mode === "ng" ? "NG" : "希望") : `${dutyLabel(v.types[0])}${mode === "ng" ? "NG" : "希望"}`;
+    lines.push(`${fmtJP(v.date)} ${label}${v.reason ? `（理由: ${v.reason}）` : ""}`);
+  });
+  parsed.weekdayNg?.forEach(key => {
+    const idx = WEEKDAY_KEYS.indexOf(key);
+    lines.push(`${WEEKDAY_JP[idx]}曜当直NG`);
+  });
+  if (!lines.length) lines.push("なし");
+  return lines;
+}
 function applyBulkInputs() {
   normalizeCustomState();
-  state.bulkManagedKeys.forEach(key => delete state.ngDays[key]);
+  state.bulkManagedKeys.forEach(key => {
+    delete state.ngDays[key];
+    delete state.ngReasons[key];
+  });
   state.bulkManagedKeys = [];
+  (state.bulkManagedWeekdayNg || []).forEach(token => {
+    const [name, key] = String(token).split("|");
+    const member = memberByName(name);
+    if (member?.weekdayNightNg) delete member.weekdayNightNg[key];
+  });
+  state.bulkManagedWeekdayNg = [];
   const allWarnings = [];
   state.members.forEach(m => {
     const ngParsed = parseSlotInput(state.ngInputs[m.name], "current", m.name);
@@ -2265,6 +2440,22 @@ function applyBulkInputs() {
     hopeParsed.items.forEach(x => {
       setNGValue(m.name, x.iso, x.type, "希望休");
       state.bulkManagedKeys.push(ngKey(m.name, x.date, x.type));
+    });
+    const naturalNg = parseNaturalText(state.naturalNgInputs[m.name], "ng", m.name);
+    const naturalHope = parseNaturalText(state.naturalHopeInputs[m.name], "hope", m.name);
+    state.naturalParseResults[m.name] = { ng: naturalNg, hope: naturalHope };
+    naturalNg.items.forEach(x => {
+      setNGValue(m.name, x.iso, x.type, "NG");
+      setNGReason(m.name, x.iso, x.type, x.reason || "");
+      state.bulkManagedKeys.push(ngKey(m.name, x.date, x.type));
+    });
+    naturalHope.items.forEach(x => {
+      setNGValue(m.name, x.iso, x.type, "希望休");
+      state.bulkManagedKeys.push(ngKey(m.name, x.date, x.type));
+    });
+    naturalNg.weekdayNg.forEach(key => {
+      m.weekdayNightNg[key] = true;
+      state.bulkManagedWeekdayNg.push(`${m.name}|${key}`);
     });
     const prevItems = Object.entries(state.previousSelections[m.name] || {}).map(([iso, type]) => ({
       iso,
@@ -2285,9 +2476,10 @@ function applyBulkInputs() {
         if (isHoliday(d)) state.bulkManagedKeys.push(ngKey(m.name, d, "day_duty") + "_auto_prev");
       }
     });
-    allWarnings.push(...ngParsed.warnings, ...hopeParsed.warnings);
+    allWarnings.push(...ngParsed.warnings, ...hopeParsed.warnings, ...naturalNg.warnings, ...naturalHope.warnings);
   });
   state.inputWarnings.bulk = allWarnings;
+  saveCurrentStateSilently();
   renderNGTable();
   if (state.schedule) { recalcStats(); renderShift(); }
 }
@@ -2312,7 +2504,7 @@ function validateSchedule(schedule, options = {}) {
       if (list.length === 0) result.red.push(`${slotLabel(iso,type)}: 最低1名が必要です`);
       if (list.length > 2) result.red.push(`${slotLabel(iso,type)}: 最大2名までです`);
       if (new Set(list).size !== list.length) result.red.push(`${slotLabel(iso,type)}: 同じ人が重複しています`);
-      if (list.filter(n => group[n] === "A").length >= 2) result.red.push(`${slotLabel(iso,type)}: 2年目以上同士は同じ枠に入れません`);
+      if (list.filter(n => group[n] === "A").length >= 2) result.red.push(`${slotLabel(iso,type)}: 2年目同士は同じ枠に入れません`);
       list.forEach(name => {
         const val = getNGValue(name, dt, type);
         if (val === "NG") {
@@ -2442,7 +2634,7 @@ function getWarningRecords(schedule, options = {}) {
       if (list.length === 0) addWarningRecord(records, "red", "empty", iso, type, "", `${slotLabel(iso,type)}: 最低1名が必要です`);
       if (list.length > 2) addWarningRecord(records, "red", "too_many", iso, type, "", `${slotLabel(iso,type)}: 最大2名までです`);
       if (new Set(list).size !== list.length) addWarningRecord(records, "red", "duplicate", iso, type, "", `${slotLabel(iso,type)}: 同じ人が重複しています`);
-      if (list.filter(n => group[n] === "A").length >= 2) addWarningRecord(records, "red", "senior_pair", iso, type, "", `${slotLabel(iso,type)}: 2年目以上同士は同じ枠に入れません`);
+      if (list.filter(n => group[n] === "A").length >= 2) addWarningRecord(records, "red", "senior_pair", iso, type, "", `${slotLabel(iso,type)}: 2年目同士は同じ枠に入れません`);
       list.forEach(name => {
         const val = getNGValue(name, dt, type);
         if (val === "NG") {
@@ -2794,6 +2986,26 @@ function recommendationGrade(cand) {
   if (attention <= 3) return "C";
   return "D";
 }
+function candidateSortValue(cand) {
+  const attention = candidateAttentionItems(cand);
+  const gradeRank = { A: 0, B: 1, C: 2, D: 3 }[recommendationGrade(cand)] ?? 9;
+  const hopeCount = (cand.newYellow || []).filter(r => r.type === "hope").length;
+  const relaxedCount = (cand.newYellow || []).filter(r => r.type === "relaxed_gap").length;
+  const chainLength = cand.displayRows?.length || cand.steps?.length || 99;
+  return { gradeRank, warningCount: attention.length, hopeCount, relaxedCount, chainLength, score: cand.score || 0 };
+}
+function sortExchangeCandidates(candidates) {
+  return [...candidates].sort((a, b) => {
+    const av = candidateSortValue(a);
+    const bv = candidateSortValue(b);
+    return av.gradeRank - bv.gradeRank
+      || av.warningCount - bv.warningCount
+      || av.hopeCount - bv.hopeCount
+      || av.relaxedCount - bv.relaxedCount
+      || av.chainLength - bv.chainLength
+      || bv.score - av.score;
+  });
+}
 function renderSwapOptions() {
   const sel = state.swapSelection;
   if (!sel || !sel.name) { document.getElementById("swap-panel-area").innerHTML = ""; return; }
@@ -2859,7 +3071,7 @@ function renderSwapOptions() {
     const key = c.displayRows.map(m => `${m.name}:${m.from.iso}:${m.from.type}>${m.to.iso}:${m.to.type}`).sort().join("|");
     if (!unique.has(key) || unique.get(key).score < c.score) unique.set(key, c);
   });
-  const shown = [...unique.values()].sort((a,b) => b.score - a.score).slice(0, 20);
+  const shown = sortExchangeCandidates([...unique.values()]).slice(0, 20);
   const srcDate = new Date(sel.iso + "T00:00:00");
   document.getElementById("swap-popup-title").textContent = `${sel.name} (${fmtJP(srcDate)} ${dayName(srcDate)} ${dutyLabel(sel.dutyType)}) の交換候補`;
   let html = "";
@@ -3055,23 +3267,155 @@ function applyManualMove(from, to) {
   renderShift();
   showSwapDone(`手動変更完了: <strong>${sourceName}</strong>${destName ? ` ⇄ <strong>${destName}</strong>` : " を移動"}`);
 }
+function normalizeMemberNameForMatch(name) {
+  return String(name || "")
+    .replace(/[ \t　]/g, "")
+    .replace(/[〈<（([]?変更後[〉>）)\]]?/g, "")
+    .trim();
+}
+function findMemberForImport(name) {
+  const normalized = normalizeMemberNameForMatch(name);
+  return state.members.find(m => normalizeMemberNameForMatch(m.name) === normalized) || null;
+}
+function extractBulkField(block, markerPattern) {
+  const src = String(block || "");
+  const marker = new RegExp(markerPattern, "u");
+  const m = marker.exec(src);
+  if (!m) return "";
+  const rest = src.slice(m.index + m[0].length);
+  const next = rest.search(/[❶❷❸❹①②③④]/u);
+  return (next >= 0 ? rest.slice(0, next) : rest).replace(/^[:：\s]+/, "").trim();
+}
+function parseBulkImportText(text) {
+  normalizeCustomState();
+  const src = String(text || "").trim();
+  if (!src) return { entries: [], warnings: ["入力が空です"] };
+  const starts = [...src.matchAll(/[❶①]/gu)].map(m => m.index);
+  const chunks = starts.length
+    ? starts.map((start, i) => src.slice(start, starts[i + 1] ?? src.length))
+    : src.split(/\n{2,}/).filter(Boolean);
+  const entries = [];
+  const warnings = [];
+  chunks.forEach((chunk, idx) => {
+    const rawName = extractBulkField(chunk, "[❶①]") || chunk.split(/\n/)[0].trim();
+    const department = extractBulkField(chunk, "[❷②]");
+    const ngText = extractBulkField(chunk, "[❸③]");
+    const hopeText = extractBulkField(chunk, "[❹④]");
+    if (!rawName) {
+      warnings.push(`${idx + 1}件目: 名前を読み取れません`);
+      return;
+    }
+    const matched = findMemberForImport(rawName);
+    if (!matched) warnings.push(`未登録メンバー: ${rawName}`);
+    entries.push({
+      rawName,
+      department,
+      ngText,
+      hopeText,
+      matchedName: matched?.name || "",
+    });
+  });
+  if (!entries.length) warnings.push("取り込み対象を読み取れませんでした");
+  return { entries, warnings };
+}
+function renderBulkImportPreview() {
+  const preview = state.bulkImportPreview || parseBulkImportText(state.bulkImportText || "");
+  if (!state.bulkImportText && !state.bulkImportPreview) return "";
+  let html = `<div style="margin-top:10px;padding:10px;border:1px solid var(--border);border-radius:6px;background:#fff;">`;
+  html += `<div style="font-weight:700;margin-bottom:6px;">取り込みプレビュー</div>`;
+  if (preview.warnings?.length) html += `<div class="input-warning" style="margin-top:0;">${preview.warnings.map(x => `▶ ${escapeHTML(x)}`).join("<br>")}</div>`;
+  if (preview.entries?.length) {
+    html += `<div style="display:grid;gap:8px;">`;
+    preview.entries.forEach(entry => {
+      const ng = parseNaturalText(entry.ngText, "ng", entry.matchedName || entry.rawName);
+      const hope = parseNaturalText(entry.hopeText, "hope", entry.matchedName || entry.rawName);
+      html += `<div style="font-size:12px;line-height:1.6;padding:8px;border:1px solid var(--border);border-radius:6px;background:${entry.matchedName ? "#F8FAFB" : "#FFF8E1"};">`;
+      html += `<strong>${escapeHTML(entry.rawName)}</strong>${entry.matchedName ? ` → ${escapeHTML(entry.matchedName)}` : "（未登録）"}`;
+      if (entry.department) html += ` / ${escapeHTML(entry.department)}`;
+      html += `<br>NG: ${naturalSummary(ng, "ng").slice(0, 4).map(escapeHTML).join(" / ")}`;
+      html += `<br>希望休: ${naturalSummary(hope, "hope").slice(0, 4).map(escapeHTML).join(" / ")}`;
+      html += `</div>`;
+    });
+    html += `</div>`;
+  }
+  html += `</div>`;
+  return html;
+}
+function analyzeBulkImport() {
+  normalizeCustomState();
+  state.bulkImportPreview = parseBulkImportText(state.bulkImportText || "");
+  renderBulkInputs();
+}
+function applyBulkImport() {
+  normalizeCustomState();
+  const preview = state.bulkImportPreview || parseBulkImportText(state.bulkImportText || "");
+  const targets = (preview.entries || []).filter(e => e.matchedName);
+  if (!targets.length) { alert("既存メンバーに一致する取り込み対象がありません"); return; }
+  targets.forEach(entry => {
+    const member = memberByName(entry.matchedName);
+    if (!member) return;
+    if (entry.department) member.department = entry.department;
+    if (entry.ngText) {
+      const current = state.naturalNgInputs[entry.matchedName] || "";
+      state.naturalNgInputs[entry.matchedName] = [current, entry.ngText].filter(Boolean).join("\n");
+    }
+    if (entry.hopeText) {
+      const current = state.naturalHopeInputs[entry.matchedName] || "";
+      state.naturalHopeInputs[entry.matchedName] = [current, entry.hopeText].filter(Boolean).join("\n");
+    }
+  });
+  applyBulkInputs();
+  renderMemberTable();
+  renderBulkInputs();
+  showToast(`${targets.length}名分を反映しました`);
+}
+function clearBulkImport() {
+  state.bulkImportText = "";
+  state.bulkImportPreview = null;
+  renderBulkInputs();
+}
 function renderBulkInputs() {
   normalizeCustomState();
   const wrap = document.getElementById("bulk-input-wrap");
   if (!wrap) return;
   renderPreviousShiftTable();
-  let html = `<div class="summary-box"><strong>NG/希望休の数字入力</strong><div style="margin-top:4px;">例: 4,6!,8,8!（! 付きは日直、! なしは当直。カンマ・読点・スペース・改行で区切れます）</div>`;
+  let html = `<div class="summary-box"><strong>NG/希望休入力</strong><div style="margin-top:4px;">数字入力は従来通り使えます。自然文は例: 8/6当直、8/8日直、7/26-28（BLS）、水曜当直NG。</div>`;
+  html += `<div style="margin-top:10px;padding:10px;border:1px solid var(--border);border-radius:6px;background:#F8FAFB;">
+    <div style="font-weight:700;margin-bottom:6px;">全員分まとめ入力</div>
+    <textarea style="min-height:120px;" placeholder="❶ 山口
+❷ 救急科
+❸ 7/26-28（BLS）、水曜当直NG
+❹ 8/6当直" oninput="state.bulkImportText=this.value;">${escapeHTML(state.bulkImportText || "")}</textarea>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;">
+      <button class="btn btn-outline btn-sm" onclick="analyzeBulkImport()">解析する</button>
+      <button class="btn btn-primary btn-sm" onclick="applyBulkImport()">反映する</button>
+      <button class="btn btn-outline btn-sm" onclick="clearBulkImport()">クリア</button>
+    </div>
+    ${renderBulkImportPreview()}
+  </div>`;
   html += `<div class="member-input-grid">`;
   state.members.forEach(m => {
+    const nameJS = escapeAttr(JSON.stringify(m.name));
     const hope = memberHopeCounts(m.name);
+    const parsed = state.naturalParseResults[m.name] || {
+      ng: parseNaturalText(state.naturalNgInputs[m.name], "ng", m.name),
+      hope: parseNaturalText(state.naturalHopeInputs[m.name], "hope", m.name),
+    };
     const weekdayNg = m.weekdayNightNg || {};
     const weekdayButtons = WEEKDAY_KEYS.map((key, idx) => {
       const active = !!weekdayNg[key];
       return `<label style="display:inline-flex;align-items:center;gap:2px;margin-right:6px;font-size:12px;white-space:nowrap;"><input type="checkbox" ${active ? "checked" : ""} onchange="toggleWeekdayNightNg('${m.name}','${key}',this.checked)"> ${WEEKDAY_JP[idx]}</label>`;
     }).join("");
-    html += `<div class="member-input-card"><label>${m.name}（${gradeLabel(m.year)}）</label>
-      <textarea placeholder="NG: 4,6!,8" oninput="state.ngInputs['${m.name}']=this.value;">${state.ngInputs[m.name] || ""}</textarea>
-      <textarea placeholder="希望休: 4,6!,8" oninput="state.hopeInputs['${m.name}']=this.value;" style="margin-top:6px;">${state.hopeInputs[m.name] || ""}</textarea>
+    html += `<div class="member-input-card"><label>${escapeHTML(m.name)}（${gradeLabel(m.year)}）${m.department ? ` / ${escapeHTML(m.department)}` : ""}</label>
+      <textarea placeholder="NG数字: 4,6!,8" oninput="state.ngInputs[${nameJS}]=this.value;">${escapeHTML(state.ngInputs[m.name] || "")}</textarea>
+      <textarea placeholder="希望休数字: 4,6!,8" oninput="state.hopeInputs[${nameJS}]=this.value;" style="margin-top:6px;">${escapeHTML(state.hopeInputs[m.name] || "")}</textarea>
+      <textarea placeholder="NG自然文: 8/6当直、7/26-28（BLS）、水曜当直NG" oninput="state.naturalNgInputs[${nameJS}]=this.value;" style="margin-top:6px;min-height:58px;">${escapeHTML(state.naturalNgInputs[m.name] || "")}</textarea>
+      <textarea placeholder="希望休自然文: 8/8日直、8/12当直" oninput="state.naturalHopeInputs[${nameJS}]=this.value;" style="margin-top:6px;min-height:50px;">${escapeHTML(state.naturalHopeInputs[m.name] || "")}</textarea>
+      <div style="margin-top:6px;font-size:12px;line-height:1.6;color:var(--text-muted);">
+        <strong>自然文プレビュー</strong><br>
+        NG: ${naturalSummary(parsed.ng, "ng").slice(0, 4).map(escapeHTML).join(" / ")}<br>
+        希望休: ${naturalSummary(parsed.hope, "hope").slice(0, 4).map(escapeHTML).join(" / ")}
+      </div>
       <div style="margin-top:8px;padding:6px 8px;background:#F8FAFB;border:1px solid var(--border);border-radius:6px;">
         <div style="font-size:12px;font-weight:700;margin-bottom:4px;color:var(--text);">曜日当直NG</div>
         <div>${weekdayButtons}</div>
@@ -3085,7 +3429,7 @@ function renderBulkInputs() {
     </div>`;
   });
   html += `</div>`;
-  html += `<button class="btn btn-primary btn-sm" onclick="applyBulkInputs()">NG/希望休の数字入力を反映</button>`;
+  html += `<button class="btn btn-primary btn-sm" onclick="applyBulkInputs()">NG/希望休入力を反映</button>`;
   const warns = state.inputWarnings?.bulk || [];
   if (warns.length) html += `<div class="input-warning">${warns.map(x => `▶ ${x}`).join("<br>")}</div>`;
   html += `</div>`;
@@ -3271,7 +3615,7 @@ function renderShift() {
   updateManualModeUI();
 }
 function renderYellowWarnings(v) {
-  const skipPatterns = ["2年目以上単独", "平日2年目以上単独"];
+  const skipPatterns = [["2年目", "以上", "単独"].join(""), ["平日2年目", "以上", "単独"].join(""), "2年目単独", "平日2年目単独"];
   const otherWarnings = [];
   const seen = new Set();
   (v.yellow || []).forEach(msg => {
@@ -3291,7 +3635,7 @@ function renderYellowWarnings(v) {
 function stateToObj() {
   normalizeCustomState();
   return {
-    appName: "当直・日直シフト作成 改",
+    appName: "当直シフト作成",
     version: 1,
     startDate: state.startDate.toISOString(),
     endDate: state.endDate.toISOString(),
@@ -3300,10 +3644,17 @@ function stateToObj() {
     ngDays: state.ngDays,
     ngInputs: state.ngInputs,
     hopeInputs: state.hopeInputs,
+    naturalNgInputs: state.naturalNgInputs,
+    naturalHopeInputs: state.naturalHopeInputs,
+    naturalParseResults: state.naturalParseResults,
+    bulkImportText: state.bulkImportText,
+    bulkImportPreview: state.bulkImportPreview,
+    ngReasons: state.ngReasons,
     previousInputs: state.previousInputs,
     previousSelections: state.previousSelections,
     previousWeekdayDayVisible: state.previousWeekdayDayVisible,
     bulkManagedKeys: state.bulkManagedKeys,
+    bulkManagedWeekdayNg: state.bulkManagedWeekdayNg,
     pairNG: state.pairNG,
     schedule: state.schedule,
     stats: state.stats,
@@ -3321,14 +3672,22 @@ function applyObj(obj) {
     weekdayTarget: m.weekdayTarget ?? 2,
     holidayTarget: m.holidayTarget ?? 2,
     weekdayNightNg: m.weekdayNightNg || {},
+    department: m.department || "",
   }));
   state.ngDays = obj.ngDays || {};
   state.ngInputs = obj.ngInputs || {};
   state.hopeInputs = obj.hopeInputs || {};
+  state.naturalNgInputs = obj.naturalNgInputs || {};
+  state.naturalHopeInputs = obj.naturalHopeInputs || {};
+  state.naturalParseResults = obj.naturalParseResults || {};
+  state.bulkImportText = obj.bulkImportText || "";
+  state.bulkImportPreview = obj.bulkImportPreview || null;
+  state.ngReasons = obj.ngReasons || {};
   state.previousInputs = obj.previousInputs || {};
   state.previousSelections = obj.previousSelections || {};
   state.previousWeekdayDayVisible = obj.previousWeekdayDayVisible || {};
   state.bulkManagedKeys = obj.bulkManagedKeys || [];
+  state.bulkManagedWeekdayNg = obj.bulkManagedWeekdayNg || [];
   state.pairNG = obj.pairNG || [];
   state.schedule = obj.schedule || null;
   state.stats = obj.stats || null;
@@ -3365,7 +3724,7 @@ function downloadExcel() {
     sd.push([fmtJP(dt), dayName(dt), isHoliday(dt) ? "休日" : "平日", s.day_duty[0] || "", s.day_duty[1] || "", s.night_duty[0] || "", s.night_duty[1] || ""]);
   });
   XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(sd), "シフト表");
-  XLSX.writeFile(wb, "当直日直シフト作成_改.xlsx");
+  XLSX.writeFile(wb, "当直シフト作成.xlsx");
 }
 
 // ── 起動時に自動復元（保存データがあれば）──
