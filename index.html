@@ -55,7 +55,9 @@ h1 { font-size: 20px; font-weight: 700; color: var(--primary); }
 .summary-box { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 12px; font-size: 13px; }
 .summary-box strong { color: var(--primary); }
 .raw-import-box { margin-bottom: 16px; border: 2px solid #90CAF9; background: #F7FBFF; }
-.raw-import-box textarea { width: 100%; min-height: 150px; margin-top: 8px; padding: 10px; resize: vertical; border: 1px solid var(--border); border-radius: 6px; font-family: inherit; font-size: 13px; line-height: 1.6; background: #fff; }
+.raw-import-editor { width: 100%; min-height: 150px; max-height: 360px; overflow-y: auto; margin-top: 8px; padding: 10px; white-space: pre-wrap; overflow-wrap: anywhere; border: 1px solid var(--border); border-radius: 6px; font-family: inherit; font-size: 13px; line-height: 1.6; background: #fff; }
+.raw-import-editor:empty::before { content: attr(data-placeholder); color: #9E9E9E; white-space: pre-wrap; pointer-events: none; }
+.raw-name-highlight { background: #FFF176; color: #B71C1C; border-radius: 3px; padding: 0 2px; font-weight: 700; text-decoration: underline wavy #E65100; }
 .raw-import-actions { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-top: 8px; }
 .raw-import-result { margin-top: 12px; overflow-x: auto; }
 .raw-import-table { width: 100%; min-width: 760px; border-collapse: collapse; background: #fff; }
@@ -2125,6 +2127,7 @@ function normalizeCustomState() {
   state.rawImportText = state.rawImportText || "";
   state.rawImportRows = state.rawImportRows || [];
   state.rawImportWarnings = state.rawImportWarnings || [];
+  state.rawImportUnknownNames = state.rawImportUnknownNames || [];
   state.previousInputs = state.previousInputs || {};
   state.previousSelections = state.previousSelections || {};
   state.previousWeekdayDayVisible = state.previousWeekdayDayVisible || {};
@@ -3550,19 +3553,15 @@ function applyManualMove(from, to) {
   renderShift();
   showSwapDone(`手動変更完了: <strong>${sourceName}</strong>${destName ? ` ⇄ <strong>${destName}</strong>` : " を移動"}`);
 }
-const DEFAULT_NAME_READINGS = {
-  "馬場": ["ばば"], "下田": ["しもだ"], "実松": ["さねまつ", "じつまつ"],
-  "和田": ["わだ"], "堀井": ["ほりい"], "唐鎌": ["からかま"],
-  "前田": ["まえだ"], "東": ["ひがし", "あずま"], "仮元": ["かりもと", "かもと"],
-  "山口": ["やまぐち"], "埴岡": ["はにおか"], "中村": ["なかむら"],
-  "眞部": ["まなべ", "しんべ"], "島田": ["しまだ"]
-};
-
 function normalizeRequestText(text) {
+  const circled = { "❶":"①", "➊":"①", "➀":"①", "⓵":"①", "❷":"②", "➋":"②", "➁":"②", "⓶":"②", "❸":"③", "➌":"③", "➂":"③", "⓷":"③", "❹":"④", "➍":"④", "➃":"④", "⓸":"④" };
+  const canonical = ["", "①", "②", "③", "④"];
   return String(text || "")
     .replace(/[０-９]/g, ch => String.fromCharCode(ch.charCodeAt(0) - 0xFEE0))
+    .replace(/[❶➊➀⓵❷➋➁⓶❸➌➂⓷❹➍➃⓸]/g, ch => circled[ch] || ch)
     .replace(/[／]/g, "/").replace(/[．]/g, ".").replace(/[，]/g, ",")
-    .replace(/\r\n?/g, "\n");
+    .replace(/\r\n?/g, "\n")
+    .replace(/(^|\n)([ \t　]*)([1-4])(?:[ \t　:：.)）-]+|(?=[^0-9\/.-]))/g, (all, lineStart, spacing, number) => `${lineStart}${spacing}${canonical[Number(number)]}`);
 }
 function normalizeNameReading(text) {
   return normalizeRequestText(text)
@@ -3577,7 +3576,6 @@ function findRequestMember(rawName) {
   const candidates = [];
   state.members.forEach(member => {
     candidates.push({ name: member.name, alias: normalizeNameReading(member.name) });
-    (DEFAULT_NAME_READINGS[member.name] || []).forEach(reading => candidates.push({ name: member.name, alias: normalizeNameReading(reading) }));
   });
   candidates.sort((a, b) => b.alias.length - a.alias.length);
   const exact = candidates.find(candidate => candidate.alias === normalized);
@@ -3665,12 +3663,16 @@ function parseRawRequests(text) {
     : [normalized];
   const rows = [];
   const warnings = [];
+  const unknownNames = [];
   blocks.filter(block => block.trim()).forEach((block, blockIndex) => {
     const nameMatch = block.match(/①([\s\S]*?)(?=②|③|④|$)/);
     const rawName = (nameMatch?.[1] || "").trim();
     const memberName = findRequestMember(rawName);
     if (!rawName) warnings.push(`${blockIndex + 1}人目: ①名前を読み取れませんでした`);
-    else if (!memberName) warnings.push(`${rawName}: 登録メンバーと照合できませんでした。確認欄で名前を選んでください`);
+    else if (!memberName) {
+      unknownNames.push(rawName);
+      warnings.push(`${rawName}: 名前を判別できません。入力欄の黄色部分を登録済みの漢字名に書き換えて、もう一度読み取ってください`);
+    }
     const ngSection = block.match(/③([\s\S]*?)(?=④|$)/);
     const hopeSection = block.match(/④([\s\S]*?)$/);
     if (ngSection) {
@@ -3692,15 +3694,16 @@ function parseRawRequests(text) {
     seen.add(key);
     return true;
   });
-  return { rows: deduped, warnings };
+  return { rows: deduped, warnings, unknownNames: [...new Set(unknownNames)] };
 }
 function readRawRequests() {
   normalizeCustomState();
-  const textarea = document.getElementById("raw-import-text");
-  if (textarea) state.rawImportText = textarea.value;
+  const editor = document.getElementById("raw-import-text");
+  if (editor) state.rawImportText = editor.innerText.replace(/\u00a0/g, " ");
   const parsed = parseRawRequests(state.rawImportText);
   state.rawImportRows = parsed.rows;
   state.rawImportWarnings = parsed.warnings;
+  state.rawImportUnknownNames = parsed.unknownNames;
   renderRawImport();
   if (!parsed.rows.length) showToast("読み取れる日付がありませんでした");
 }
@@ -3745,18 +3748,39 @@ function applyRawRequests() {
   state.rawImportText = "";
   state.rawImportRows = [];
   state.rawImportWarnings = [];
+  state.rawImportUnknownNames = [];
   applyBulkInputs();
   showToast(`${appliedCount}件をNG・希望休へ反映しました`);
+}
+function highlightRawImportNames(text, names) {
+  const targets = [...new Set((names || []).filter(Boolean))].sort((a, b) => b.length - a.length);
+  if (!targets.length) return escapeHTML(text);
+  const pattern = new RegExp(targets.map(name => name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|"), "g");
+  let html = "";
+  let lastIndex = 0;
+  String(text).replace(pattern, (matched, offset) => {
+    html += escapeHTML(String(text).slice(lastIndex, offset));
+    html += `<mark class="raw-name-highlight" title="登録済みの漢字名に書き換えてください">${escapeHTML(matched)}</mark>`;
+    lastIndex = offset + matched.length;
+    return matched;
+  });
+  return html + escapeHTML(String(text).slice(lastIndex));
+}
+function pasteRawImportPlainText(event) {
+  event.preventDefault();
+  const text = event.clipboardData?.getData("text/plain") || "";
+  document.execCommand("insertText", false, text);
 }
 function renderRawImport() {
   normalizeCustomState();
   const wrap = document.getElementById("raw-import-wrap");
   if (!wrap) return;
   const rows = state.rawImportRows || [];
+  const highlightedText = highlightRawImportNames(state.rawImportText || "", state.rawImportUnknownNames || []);
   let html = `<div class="summary-box raw-import-box"><strong>原文まとめ入力</strong>
-    <div style="margin-top:4px;">①名前・③NG・④希望休を含む文章を、複数人分まとめて貼り付けできます。理由文は登録せず、読めない箇所だけ黄色で確認します。</div>
-    <textarea id="raw-import-text" placeholder="例：\n①ばば\n②小児科\n③9/26当直、9/27日当直\n④10/10、10/11日直\n\n①山口\n③月曜は当直×\n④10/3当直" oninput="state.rawImportText=this.value;">${escapeHTML(state.rawImportText || "")}</textarea>
-    <div class="raw-import-actions"><button class="btn btn-primary btn-sm" onclick="readRawRequests()">文章を読み取る</button><span style="font-size:12px;color:var(--text-muted);">漢字・ひらがな対応／複数人まとめて可</span></div>`;
+    <div style="margin-top:4px;">①・❶・➊・1などの番号に対応しています。①名前・③NG・④希望休を含む文章を、複数人分まとめて貼り付けできます。</div>
+    <div id="raw-import-text" class="raw-import-editor" contenteditable="true" role="textbox" aria-multiline="true" data-placeholder="例：&#10;①馬場&#10;②小児科&#10;③9/26当直、9/27日当直&#10;④10/10、10/11日直&#10;&#10;❶山口&#10;❷整形外科&#10;❸月曜は当直×&#10;❹10/3当直" oninput="state.rawImportText=this.innerText" onpaste="pasteRawImportPlainText(event)">${highlightedText}</div>
+    <div class="raw-import-actions"><button class="btn btn-primary btn-sm" onclick="readRawRequests()">文章を読み取る</button><span style="font-size:12px;color:var(--text-muted);">名前は登録済みの漢字表記で入力／複数人まとめて可</span></div>`;
   if (state.rawImportWarnings?.length) html += `<div class="input-warning">${state.rawImportWarnings.map(warning => `▶ ${escapeHTML(warning)}`).join("<br>")}</div>`;
   if (rows.length) {
     const ready = rows.filter(row => !requestRowIssues(row).length).length;
@@ -3764,7 +3788,6 @@ function renderRawImport() {
       <table class="raw-import-table"><thead><tr><th>反映</th><th>名前</th><th>区分</th><th>日付・曜日</th><th>勤務</th><th>読み取った部分</th><th>状態</th></tr></thead><tbody>`;
     rows.forEach((row, index) => {
       const issues = requestRowIssues(row);
-      const memberOptions = [`<option value="">名前を選択</option>`, ...state.members.map(member => `<option value="${escapeAttr(member.name)}" ${member.name === row.memberName ? "selected" : ""}>${escapeHTML(member.name)}</option>`)].join("");
       const kindOptions = ["NG", "希望休"].map(kind => `<option value="${kind}" ${kind === row.kind ? "selected" : ""}>${kind}</option>`).join("");
       const dutyOptions = [["", "勤務を選択"], ["night_duty", "当直"], ["day_duty", "日直"], ["both", "日直＋当直"]]
         .map(([value, label]) => `<option value="${value}" ${value === row.duty ? "selected" : ""}>${label}</option>`).join("");
@@ -3773,7 +3796,7 @@ function renderRawImport() {
         : `<input type="date" value="${escapeAttr(row.iso || "")}" onchange="updateRawImportRow(${index},'iso',this.value)">`;
       html += `<tr class="${issues.length ? "needs-review" : ""}">
         <td><input type="checkbox" ${row.enabled ? "checked" : ""} onchange="updateRawImportRow(${index},'enabled',this.checked)"></td>
-        <td><select onchange="updateRawImportRow(${index},'memberName',this.value)">${memberOptions}</select>${!row.memberName && row.rawName ? `<div class="input-warning">読取: ${escapeHTML(row.rawName)}</div>` : ""}</td>
+        <td>${row.memberName ? `<strong>${escapeHTML(row.memberName)}</strong>` : `<span class="input-warning">入力欄の「${escapeHTML(row.rawName || "名前なし")}」を漢字名に修正</span>`}</td>
         <td><select onchange="updateRawImportRow(${index},'kind',this.value)" ${row.rowType === "weekday" ? "disabled" : ""}>${kindOptions}</select></td>
         <td>${dateCell}</td>
         <td>${row.rowType === "weekday" ? "当直" : `<select onchange="updateRawImportRow(${index},'duty',this.value)">${dutyOptions}</select>`}</td>
@@ -4078,6 +4101,7 @@ function applyObj(obj) {
   state.rawImportText = obj.rawImportText || "";
   state.rawImportRows = [];
   state.rawImportWarnings = [];
+  state.rawImportUnknownNames = [];
   state.previousInputs = obj.previousInputs || {};
   state.previousSelections = obj.previousSelections || {};
   state.previousWeekdayDayVisible = obj.previousWeekdayDayVisible || {};
