@@ -289,7 +289,7 @@ td.hope-assigned { background: #FFF8E1 !important; }
   <!-- ── 基本設定タブ ── -->
   <div id="panel-settings" class="panel">
     <h2 class="section-title">期間設定</h2>
-    <p class="section-desc">開始日と終了日を年から直接入力してください。日曜開始・28日間（4週間）で設定します。</p>
+    <p class="section-desc">開始日と終了日を年から直接入力してください。入力した期間をそのまま反映します。</p>
     <div class="period-row">
       <label>開始日</label>
       <input type="date" id="start-date" value="2026-08-02">
@@ -362,7 +362,7 @@ td.hope-assigned { background: #FFF8E1 !important; }
       <div style="background:var(--surface);border-radius:8px;box-shadow:0 1px 3px rgba(0,0,0,.06);overflow:hidden;">
         <div style="background:var(--primary);color:#fff;padding:10px 16px;font-size:14px;font-weight:700;">② 基本設定（期間・休館日）</div>
         <div style="padding:14px 16px;font-size:13px;line-height:1.9;">
-          <p><strong>期間設定：</strong>年を含む開始日・終了日を直接入力し「期間を反映」ボタンを押してください。期間は日曜開始の28日間です。</p>
+          <p><strong>期間設定：</strong>年を含む開始日・終了日を直接入力し「期間を反映」ボタンを押してください。曜日や期間の長さに制限はありません。</p>
           <p style="margin-top:6px;"><strong>休館日：</strong>土日・祝日は自動で休日扱いになります。それ以外の休館日（年末年始など）は日付とメモを入力して「追加」ボタンで登録してください。</p>
           <ul style="margin:8px 0 0 16px;">
             <li>登録した休館日は土日と同じ扱いになり、日直・当直の両方が割り当てられます</li>
@@ -1828,9 +1828,6 @@ function applyPeriod() {
   const nextEnd = new Date(endInput.value + "T00:00:00");
   if (Number.isNaN(nextStart.getTime()) || Number.isNaN(nextEnd.getTime()) || nextEnd < nextStart) {
     alert("終了日は開始日以降の日付を入力してください。"); return;
-  }
-  if (nextStart.getDay() !== 0 || diffDays(nextEnd, nextStart) !== 27) {
-    alert("期間は日曜日から始まる28日間（4週間）で入力してください。"); return;
   }
   state.startDate = nextStart;
   state.endDate = nextEnd;
