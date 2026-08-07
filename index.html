@@ -468,8 +468,8 @@ td.hope-assigned { background: #FFF8E1 !important; }
         <li><span class="rule-icon hard">7</span><div><strong>同日の日直・当直兼任禁止</strong><br>同じ日に日直と当直の両方に入ることはできません。</div></li>
         <li><span class="rule-icon hard">8</span><div><strong>NG日は絶対不可</strong><br>NGと設定された日には、いかなる場合もシフトを入れません。</div></li>
         <li><span class="rule-icon hard">9</span><div><strong>平日金曜当直は1年目1人のみ</strong><br>金曜日が平日の場合、当直は必ず1年目1人のみです。2年目や1年目2人は不可です。</div></li>
-        <li><span class="rule-icon soft">10</span><div><strong>2年目単独は内部評価で回避</strong><br>2年目が1人だけで入る枠は内部評価でなるべく減らします。</div></li>
-        <li><span class="rule-icon soft">11</span><div><strong>希望休はなるべく回避</strong><br>希望休と設定された日はなるべく避けますが、やむを得ない場合は入れることがあります。</div></li>
+        <li><span class="rule-icon soft">10</span><div><strong>各枠の1人目は1年目を優先</strong><br>まず1年目で各枠を埋めます。1年目全員がNG・希望休・勤務間隔などで入れない枠では、2年目単独を許容します。</div></li>
+        <li><span class="rule-icon soft">11</span><div><strong>希望休を優先して回避</strong><br>希望休の回避を2年目単独の回避より優先します。2人目は1年目＋2年目の組み合わせを優先し、1年目同士をなるべく減らします。</div></li>
         <li><span class="rule-icon hard">12</span><div><strong>設定した勤務回数は必ず守る</strong><br>各メンバーに設定した平日・休日の回数は必ず守ります。合計回数は、平日・休日それぞれの許容範囲内で生成します。</div></li>
         <li><span class="rule-icon hard">13</span><div><strong>全スロット最低1名</strong><br>すべてのスロットに最低1名は配置されます（0名の日は発生しません）。</div></li>
       </ul>
@@ -2070,6 +2070,23 @@ function getSeniorSoloDetails(schedule) {
   });
   return details;
 }
+function getFirstYearPairCount(schedule) {
+  let count = 0;
+  getDates().forEach(dt => {
+    const iso = fmtISO(dt);
+    const hol = isHoliday(dt);
+    const s = schedule?.[iso] || { day_duty: [], night_duty: [] };
+    [["day_duty", s.day_duty || []], ["night_duty", s.night_duty || []]].forEach(([type, raw]) => {
+      if (!hol && type === "day_duty") return;
+      const list = raw.filter(Boolean);
+      if (list.length >= 2 && list.every(name => {
+        const member = memberByName(name);
+        return member && yearToGroup(member.year) === "B";
+      })) count++;
+    });
+  });
+  return count;
+}
 function getNGValue(name, dateOrISO, type) {
   const date = typeof dateOrISO === "string" ? new Date(dateOrISO + "T00:00:00") : dateOrISO;
   const autoKey = ngKey(name, date, type) + "_auto_prev";
@@ -2389,13 +2406,15 @@ function scoreSchedule(schedule, validation) {
   const solo = v.seniorSoloDetails || getSeniorSoloDetails(schedule);
   const weekdaySolo = solo.filter(x => x.isWeekdayNight).length;
   const otherSolo = solo.length - weekdaySolo;
+  const firstYearPairs = getFirstYearPairCount(schedule);
   const hopeWarnings = v.yellow.filter(x => x.includes("希望休")).length;
   const relaxedWarnings = v.yellow.filter(x => x.includes("中2日")).length;
   return 100000
     - v.red.length * 100000
-    - weekdaySolo * 900
-    - otherSolo * 450
-    - hopeWarnings * 50
+    - hopeWarnings * 4000
+    - firstYearPairs * 600
+    - weekdaySolo * 250
+    - otherSolo * 120
     - relaxedWarnings * 80
     - v.yellow.length * 10;
 }
@@ -2545,32 +2564,34 @@ function generate() {
   const MAX = 4000;
   function buildUnits() {
     const units = [];
-    capacity.weekdayDates.forEach(dt => units.push({ date: dt, type: "night_duty", required: true }));
+    capacity.weekdayDates.forEach(dt => units.push({ date: dt, type: "night_duty", required: true, phase: "primary" }));
     const weekdayExtra = targetWeekday - capacity.weekdayMin;
-    const weekdayOptional = shuffle(capacity.weekdayDates.filter(d => !isFriday(d)).map(date => ({ date, type: "night_duty", required: false }))).slice(0, weekdayExtra);
+    const weekdayOptional = shuffle(capacity.weekdayDates.filter(d => !isFriday(d)).map(date => ({ date, type: "night_duty", required: false, phase: "secondary" }))).slice(0, weekdayExtra);
     units.push(...weekdayOptional);
     if (holidayMode === "standard") {
       capacity.holidayDates.forEach(dt => {
-        units.push({ date: dt, type: "day_duty", required: true });
-        units.push({ date: dt, type: "day_duty", required: true });
-        units.push({ date: dt, type: "night_duty", required: true });
+        units.push({ date: dt, type: "day_duty", required: true, phase: "primary" });
+        units.push({ date: dt, type: "day_duty", required: true, phase: "secondary" });
+        units.push({ date: dt, type: "night_duty", required: true, phase: "primary" });
       });
       const holidayExtra = targetHoliday - capacity.holidayStandardMin;
-      const holidayOptional = shuffle(capacity.holidayDates.map(date => ({ date, type: "night_duty", required: false }))).slice(0, holidayExtra);
+      const holidayOptional = shuffle(capacity.holidayDates.map(date => ({ date, type: "night_duty", required: false, phase: "secondary" }))).slice(0, holidayExtra);
       units.push(...holidayOptional);
     } else {
       capacity.holidayDates.forEach(dt => {
-        units.push({ date: dt, type: "day_duty", required: true });
-        units.push({ date: dt, type: "night_duty", required: true });
+        units.push({ date: dt, type: "day_duty", required: true, phase: "primary" });
+        units.push({ date: dt, type: "night_duty", required: true, phase: "primary" });
       });
       const holidayExtra = targetHoliday - capacity.holidayExceptionMin;
-      const holidayOptional = shuffle(capacity.holidayDates.map(date => ({ date, type: "day_duty", required: false }))).slice(0, holidayExtra);
+      const holidayOptional = shuffle(capacity.holidayDates.map(date => ({ date, type: "day_duty", required: false, phase: "secondary" }))).slice(0, holidayExtra);
       units.push(...holidayOptional);
     }
     return units.sort((a,b) => {
-      const ap = (!isHoliday(a.date) && isFriday(a.date)) ? -4 : isHoliday(a.date) && a.type === "day_duty" ? -3 : a.required ? -2 : 0;
-      const bp = (!isHoliday(b.date) && isFriday(b.date)) ? -4 : isHoliday(b.date) && b.type === "day_duty" ? -3 : b.required ? -2 : 0;
-      return ap - bp || Math.random() - 0.5;
+      const ap = a.phase === "primary" ? -10 : 0;
+      const bp = b.phase === "primary" ? -10 : 0;
+      const ac = (!isHoliday(a.date) && isFriday(a.date)) ? -4 : isHoliday(a.date) && a.type === "day_duty" ? -3 : a.required ? -2 : 0;
+      const bc = (!isHoliday(b.date) && isFriday(b.date)) ? -4 : isHoliday(b.date) && b.type === "day_duty" ? -3 : b.required ? -2 : 0;
+      return ap - bp || ac - bc || Math.random() - 0.5;
     });
   }
   for (let attempt = 0; attempt < MAX; attempt++) {
@@ -2609,19 +2630,16 @@ function generate() {
         const ar = isHoliday(slot.date) ? (a.holidayTarget - counts[a.name].holiday) : (a.weekdayTarget - counts[a.name].weekday);
         const br = isHoliday(slot.date) ? (b.holidayTarget - counts[b.name].holiday) : (b.weekdayTarget - counts[b.name].weekday);
         const slotMembers = schedule[iso][slot.type];
-        function soloRisk(m) {
-          if (group[m.name] !== "A") return 0;
-          if (slotMembers.length === 0) return (!isHoliday(slot.date) && slot.type === "night_duty") ? 20 : 10;
-          if (slotMembers.some(n => group[n] === "B")) return -8;
-          return 12;
+        function yearPriority(m) {
+          const isFirstYear = group[m.name] === "B";
+          if (slot.phase === "primary" || slotMembers.length === 0) return isFirstYear ? 0 : 20;
+          const hasFirstYear = slotMembers.some(n => group[n] === "B");
+          const hasSecondYear = slotMembers.some(n => group[n] === "A");
+          if (hasFirstYear) return isFirstYear ? 15 : 0;
+          if (hasSecondYear) return isFirstYear ? 0 : 30;
+          return isFirstYear ? 0 : 20;
         }
-        function pairBonus(m) {
-          if (group[m.name] === "B" && slotMembers.some(n => group[n] === "A")) return -20;
-          return 0;
-        }
-        const ap = soloRisk(a) + pairBonus(a);
-        const bp = soloRisk(b) + pairBonus(b);
-        return ah - bh || ap - bp || br - ar || Math.random() - 0.5;
+        return ah - bh || yearPriority(a) - yearPriority(b) || br - ar || Math.random() - 0.5;
       });
       const chosen = cands[0];
       schedule[iso][slot.type].push(chosen.name);
@@ -2631,7 +2649,8 @@ function generate() {
     }
     const validation = validateSchedule(schedule);
     if (!bestValidation || validation.score > bestValidation.score) { best = schedule; bestValidation = validation; }
-    if (validation.red.length === 0 && (validation.seniorSoloDetails || []).length === 0) break;
+    const hopeCount = validation.yellow.filter(x => x.includes("希望休")).length;
+    if (validation.red.length === 0 && hopeCount === 0 && getFirstYearPairCount(schedule) === 0 && (validation.seniorSoloDetails || []).length === 0) break;
   }
   state.schedule = best;
   state.stats = bestValidation.stats;
