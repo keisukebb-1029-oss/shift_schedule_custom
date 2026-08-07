@@ -267,8 +267,8 @@ td.hope-assigned { background: #FFF8E1 !important; }
   <!-- ── シフト表タブ ── -->
   <div id="panel-shift" class="panel active">
     <div class="generate-area">
-      <button id="generate-btn" class="btn btn-primary btn-lg" onclick="generate()">&#x1F3B2; シフト生成</button>
-      <p>必須ルールを守る候補から、希望休と年次構成が最も良い1案を選びます</p>
+      <button id="generate-btn" class="btn btn-primary btn-lg" onclick="generateOptimized()">&#x1F3B2; シフト生成</button>
+      <p>数理最適化で必須ルールをすべて守り、優先順位どおりの最適解を1案表示します</p>
       <div id="generation-progress" class="generation-progress" role="status" aria-live="polite">
         <div class="generation-progress-head"><span id="generation-progress-label">生成を準備しています</span><strong id="generation-progress-percent">0%</strong></div>
         <div class="generation-progress-track"><div id="generation-progress-bar" class="generation-progress-bar"></div></div>
@@ -289,13 +289,12 @@ td.hope-assigned { background: #FFF8E1 !important; }
   <!-- ── 基本設定タブ ── -->
   <div id="panel-settings" class="panel">
     <h2 class="section-title">期間設定</h2>
+    <p class="section-desc">開始日と終了日を年から直接入力してください。日曜開始・28日間（4週間）で設定します。</p>
     <div class="period-row">
-      <label>年</label>
-      <select id="period-year" onchange="changePeriodYear(this.value)" style="padding:6px 10px;border:1px solid var(--border);border-radius:6px;font-size:14px;"></select>
       <label>開始日</label>
-      <input type="date" id="start-date" value="2025-05-31">
+      <input type="date" id="start-date" value="2026-08-02">
       <label>終了日</label>
-      <input type="date" id="end-date" value="2025-06-27">
+      <input type="date" id="end-date" value="2026-08-29">
       <button class="btn btn-primary" onclick="applyPeriod()">期間を反映</button>
     </div>
     <h2 class="section-title">その他休館日</h2>
@@ -363,7 +362,7 @@ td.hope-assigned { background: #FFF8E1 !important; }
       <div style="background:var(--surface);border-radius:8px;box-shadow:0 1px 3px rgba(0,0,0,.06);overflow:hidden;">
         <div style="background:var(--primary);color:#fff;padding:10px 16px;font-size:14px;font-weight:700;">② 基本設定（期間・休館日）</div>
         <div style="padding:14px 16px;font-size:13px;line-height:1.9;">
-          <p><strong>期間設定：</strong>シフトを作りたい月の開始日〜終了日を入力し「期間を反映」ボタンを押してください。</p>
+          <p><strong>期間設定：</strong>年を含む開始日・終了日を直接入力し「期間を反映」ボタンを押してください。期間は日曜開始の28日間です。</p>
           <p style="margin-top:6px;"><strong>休館日：</strong>土日・祝日は自動で休日扱いになります。それ以外の休館日（年末年始など）は日付とメモを入力して「追加」ボタンで登録してください。</p>
           <ul style="margin:8px 0 0 16px;">
             <li>登録した休館日は土日と同じ扱いになり、日直・当直の両方が割り当てられます</li>
@@ -479,7 +478,7 @@ td.hope-assigned { background: #FFF8E1 !important; }
         <li><span class="rule-icon hard">8</span><div><strong>NG日は絶対不可</strong><br>NGと設定された日には、いかなる場合もシフトを入れません。</div></li>
         <li><span class="rule-icon hard">9</span><div><strong>平日金曜当直は1年目1人のみ</strong><br>金曜日が平日の場合、当直は必ず1年目1人のみです。2年目や1年目2人は不可です。</div></li>
         <li><span class="rule-icon soft">10</span><div><strong>各枠の1人目は1年目を優先</strong><br>まず1年目で各枠を埋めます。1年目全員がNG・希望休・勤務間隔などで入れない枠では、2年目単独を許容します。</div></li>
-        <li><span class="rule-icon soft">11</span><div><strong>希望休を優先して回避</strong><br>必須ルールを守る案の中から、希望休 → 2年目単独 → 1年目同士の順に少ない案を選びます。どうしても必要な場合だけ、優先順位の低い条件を最小限緩めます。</div></li>
+        <li><span class="rule-icon soft">11</span><div><strong>希望休を優先して回避</strong><br>必須ルールを守る全候補の中から、希望休 → 2年目単独 → 1年目同士の順に少ない案を数理最適化で選びます。最適性が確認できた1案だけを表示します。</div></li>
         <li><span class="rule-icon hard">12</span><div><strong>設定した勤務回数は必ず守る</strong><br>各メンバーに設定した平日・休日の回数は必ず守ります。合計回数は、平日・休日それぞれの許容範囲内で生成します。</div></li>
         <li><span class="rule-icon hard">13</span><div><strong>全スロット最低1名</strong><br>すべてのスロットに最低1名は配置されます（0名の日は発生しません）。</div></li>
       </ul>
@@ -503,8 +502,8 @@ const MEMBERS_A = ["馬場", "下田", "実松", "和田", "堀井"];
 const MEMBERS_B = ["唐鎌", "前田", "東", "仮元", "山口", "埴岡", "中村", "眞部", "島田"];
 
 let state = {
-  startDate: new Date(2025, 4, 31),
-  endDate: new Date(2025, 5, 27),
+  startDate: new Date(2026, 7, 2),
+  endDate: new Date(2026, 7, 29),
   extraHolidays: [],
   members: [],
   ngDays: {},
@@ -1821,47 +1820,27 @@ function removeHoliday(idx) {
   renderHolidayList(); renderNGTable();
 }
 
-function initPeriodYearSelect() {
-  const sel = document.getElementById("period-year");
-  if (!sel) return;
-  const current = Math.max(2026, state.startDate.getFullYear());
-  const years = [];
-  for (let y = 2026; y <= current + 5; y++) years.push(y);
-  sel.innerHTML = years.map(y => `<option value="${y}" ${y === current ? "selected" : ""}>${y}</option>`).join("");
-}
-function setDateInputYear(id, year, allowNextYear) {
-  const input = document.getElementById(id);
-  if (!input || !input.value) return;
-  const [, month, day] = input.value.split("-").map(Number);
-  const targetYear = allowNextYear ? year + 1 : year;
-  input.value = `${targetYear}-${String(month).padStart(2,"0")}-${String(day).padStart(2,"0")}`;
-}
-function changePeriodYear(yearValue) {
-  const year = parseInt(yearValue, 10);
-  if (!year) return;
-  const startInput = document.getElementById("start-date");
-  const endInput = document.getElementById("end-date");
-  const startParts = startInput.value.split("-").map(Number);
-  const endParts = endInput.value.split("-").map(Number);
-  const startMonth = startParts[1], startDay = startParts[2];
-  const endMonth = endParts[1], endDay = endParts[2];
-  const crossesYear = endMonth < startMonth || (endMonth === startMonth && endDay < startDay);
-  startInput.value = `${year}-${String(startMonth).padStart(2,"0")}-${String(startDay).padStart(2,"0")}`;
-  endInput.value = `${crossesYear ? year + 1 : year}-${String(endMonth).padStart(2,"0")}-${String(endDay).padStart(2,"0")}`;
-}
 function applyPeriod() {
-  const yearSel = document.getElementById("period-year");
   const startInput = document.getElementById("start-date");
   const endInput = document.getElementById("end-date");
-  if (yearSel) changePeriodYear(yearSel.value);
-  state.startDate = new Date(startInput.value + "T00:00:00");
-  state.endDate = new Date(endInput.value + "T00:00:00");
+  if (!startInput.value || !endInput.value) { alert("開始日と終了日を入力してください。"); return; }
+  const nextStart = new Date(startInput.value + "T00:00:00");
+  const nextEnd = new Date(endInput.value + "T00:00:00");
+  if (Number.isNaN(nextStart.getTime()) || Number.isNaN(nextEnd.getTime()) || nextEnd < nextStart) {
+    alert("終了日は開始日以降の日付を入力してください。"); return;
+  }
+  if (nextStart.getDay() !== 0 || diffDays(nextEnd, nextStart) !== 27) {
+    alert("期間は日曜日から始まる28日間（4週間）で入力してください。"); return;
+  }
+  state.startDate = nextStart;
+  state.endDate = nextEnd;
   state.schedule = null; state.stats = null; state.warnings = [];
   normalizeCustomState();
   Object.keys(state.previousSelections).forEach(name => { state.previousSelections[name] = {}; });
   state.previousInputs = {};
   applyBulkInputs();
   renderNGTable(); renderShift();
+  showToast("期間を反映しました");
 }
 
 // ═══════════════════════════════════════
@@ -2851,6 +2830,273 @@ async function generate() {
   showToast("勤務回数・赤ルールを満たすシフトを生成しました");
   endGenerationProgress(true);
 }
+
+const HIGHS_CDN_BASE = "https://cdn.jsdelivr.net/npm/highs@1.15.2/build/";
+
+function lpExpression(terms) {
+  const usable = terms.filter(term => term[0] !== 0);
+  if (!usable.length) return "0";
+  return usable.map(([coefficient, variable], index) => {
+    const sign = coefficient < 0 ? "-" : "+";
+    const absolute = Math.abs(coefficient);
+    const body = `${absolute === 1 ? "" : absolute + " "}${variable}`;
+    if (index === 0) return coefficient < 0 ? `- ${body}` : body;
+    return `${sign} ${body}`;
+  }).join(" ");
+}
+
+function buildOptimizationModel() {
+  const dates = getDates();
+  const members = state.members;
+  const holidayMode = getHolidayModeForTargets();
+  const slots = [];
+  dates.forEach(date => {
+    const iso = fmtISO(date);
+    if (!isHoliday(date)) {
+      slots.push({ iso, date, type: "night_duty", holiday: false, min: 1, max: isFriday(date) ? 1 : 2 });
+      return;
+    }
+    slots.push({ iso, date, type: "day_duty", holiday: true, min: holidayMode === "standard" ? 2 : 1, max: 2 });
+    slots.push({ iso, date, type: "night_duty", holiday: true, min: 1, max: holidayMode === "exception" ? 1 : 2 });
+  });
+
+  const previousByMember = {};
+  members.forEach(member => { previousByMember[member.name] = []; });
+  getPreviousAssignments().forEach(entry => { if (previousByMember[entry.name]) previousByMember[entry.name].push(entry); });
+  const variables = new Map();
+  const memberSlotVariables = members.map(() => []);
+  const slotMemberVariables = slots.map(() => []);
+  const impossible = [];
+
+  function conflictsWithPrevious(memberName, slot) {
+    return previousByMember[memberName].some(previous => {
+      const gap = diffDays(slot.date, previous.date) - 1;
+      const required = previous.type === "night_duty" ? 3 : 2;
+      return gap < required;
+    });
+  }
+
+  members.forEach((member, memberIndex) => {
+    slots.forEach((slot, slotIndex) => {
+      if (getNGValue(member.name, slot.date, slot.type) === "NG") return;
+      if (!slot.holiday && isFriday(slot.date) && yearToGroup(member.year) !== "B") return;
+      if (conflictsWithPrevious(member.name, slot)) return;
+      const name = `x_${memberIndex}_${slotIndex}`;
+      const variable = { name, memberIndex, slotIndex };
+      variables.set(name, variable);
+      memberSlotVariables[memberIndex].push(variable);
+      slotMemberVariables[slotIndex].push(variable);
+    });
+  });
+
+  slots.forEach((slot, slotIndex) => {
+    if (slotMemberVariables[slotIndex].length < slot.min) impossible.push(`${slotLabel(slot.iso, slot.type)}に入れる人が不足しています`);
+  });
+  members.forEach((member, memberIndex) => {
+    const weekdayEligible = memberSlotVariables[memberIndex].filter(v => !slots[v.slotIndex].holiday).length;
+    const holidayEligible = memberSlotVariables[memberIndex].filter(v => slots[v.slotIndex].holiday).length;
+    if (weekdayEligible < member.weekdayTarget) impossible.push(`${member.name}の平日勤務可能枠が目標回数より少ないです`);
+    if (holidayEligible < member.holidayTarget) impossible.push(`${member.name}の休日勤務可能枠が目標回数より少ないです`);
+  });
+
+  const constraints = [];
+  let constraintIndex = 0;
+  function addConstraint(terms, relation, rhs) {
+    constraints.push(` c${constraintIndex++}: ${lpExpression(terms)} ${relation} ${rhs}`);
+  }
+
+  slots.forEach((slot, slotIndex) => {
+    const terms = slotMemberVariables[slotIndex].map(v => [1, v.name]);
+    addConstraint(terms, ">=", slot.min);
+    addConstraint(terms, "<=", slot.max);
+  });
+  members.forEach((member, memberIndex) => {
+    addConstraint(memberSlotVariables[memberIndex].filter(v => !slots[v.slotIndex].holiday).map(v => [1, v.name]), "=", member.weekdayTarget);
+    addConstraint(memberSlotVariables[memberIndex].filter(v => slots[v.slotIndex].holiday).map(v => [1, v.name]), "=", member.holidayTarget);
+  });
+
+  members.forEach((member, memberIndex) => {
+    dates.forEach(date => {
+      const iso = fmtISO(date);
+      const terms = memberSlotVariables[memberIndex].filter(v => slots[v.slotIndex].iso === iso).map(v => [1, v.name]);
+      if (terms.length > 1) addConstraint(terms, "<=", 1);
+    });
+    const eligible = memberSlotVariables[memberIndex];
+    for (let left = 0; left < eligible.length; left++) {
+      const earlier = slots[eligible[left].slotIndex];
+      for (let right = left + 1; right < eligible.length; right++) {
+        const later = slots[eligible[right].slotIndex];
+        if (later.iso === earlier.iso) continue;
+        const gap = diffDays(later.date, earlier.date) - 1;
+        const required = earlier.type === "night_duty" ? 3 : 2;
+        if (gap < required) addConstraint([[1, eligible[left].name], [1, eligible[right].name]], "<=", 1);
+      }
+    }
+  });
+
+  slots.forEach((slot, slotIndex) => {
+    const seniorTerms = slotMemberVariables[slotIndex]
+      .filter(v => yearToGroup(members[v.memberIndex].year) === "A")
+      .map(v => [1, v.name]);
+    if (seniorTerms.length > 1) addConstraint(seniorTerms, "<=", 1);
+    state.pairNG.forEach(pair => {
+      if (!isPairNGConflict(pair.name1, slot.iso, slot.type, [pair.name2])) return;
+      const firstIndex = members.findIndex(m => m.name === pair.name1);
+      const secondIndex = members.findIndex(m => m.name === pair.name2);
+      const first = slotMemberVariables[slotIndex].find(v => v.memberIndex === firstIndex);
+      const second = slotMemberVariables[slotIndex].find(v => v.memberIndex === secondIndex);
+      if (first && second) addConstraint([[1, first.name], [1, second.name]], "<=", 1);
+    });
+  });
+
+  const objective = [];
+  const softVariables = [];
+  const slotCount = slots.length;
+  const seniorSoloWeight = slotCount + 1;
+  const hopeWeight = slotCount * seniorSoloWeight + slotCount + 1;
+  variables.forEach(variable => {
+    const member = members[variable.memberIndex];
+    const slot = slots[variable.slotIndex];
+    if (getNGValue(member.name, slot.date, slot.type) === "希望休") objective.push([hopeWeight, variable.name]);
+  });
+  slots.forEach((slot, slotIndex) => {
+    const soloName = `senior_solo_${slotIndex}`;
+    const firstYearPairName = `first_year_pair_${slotIndex}`;
+    softVariables.push(soloName, firstYearPairName);
+    objective.push([seniorSoloWeight, soloName], [1, firstYearPairName]);
+    const soloTerms = [[1, soloName]];
+    const pairTerms = [[1, firstYearPairName]];
+    slotMemberVariables[slotIndex].forEach(variable => {
+      if (yearToGroup(members[variable.memberIndex].year) === "A") soloTerms.push([-1, variable.name]);
+      else {
+        soloTerms.push([1, variable.name]);
+        pairTerms.push([-1, variable.name]);
+      }
+    });
+    addConstraint(soloTerms, ">=", 0);
+    addConstraint(pairTerms, ">=", -1);
+  });
+
+  const binaryNames = [...variables.keys(), ...softVariables];
+  const lp = [
+    "Minimize",
+    ` obj: ${lpExpression(objective)}`,
+    "Subject To",
+    ...constraints,
+    "Binary",
+    ...binaryNames.map(name => ` ${name}`),
+    "End",
+  ].join("\n");
+  return { lp, slots, variables, impossible };
+}
+
+function solveWithHighs(lp, onProgress) {
+  const workerSource = `
+    self.onmessage = async event => {
+      try {
+        self.postMessage({ type: "progress", percent: 28, label: "最適化エンジンを読み込んでいます" });
+        importScripts("${HIGHS_CDN_BASE}highs.js");
+        const highs = await Module({ locateFile: file => "${HIGHS_CDN_BASE}" + file });
+        self.postMessage({ type: "progress", percent: 36, label: "最適解を計算・証明しています" });
+        const result = highs.solve(event.data.lp, { presolve: "on", mip_rel_gap: 0, output_flag: false });
+        const values = {};
+        Object.entries(result.Columns || {}).forEach(([name, column]) => {
+          if (Number(column.Primal) > 0.5) values[name] = 1;
+        });
+        self.postMessage({ type: "result", status: result.Status, objective: result.ObjectiveValue, values });
+      } catch (error) {
+        self.postMessage({ type: "error", message: error && error.message ? error.message : String(error) });
+      }
+    };
+  `;
+  const blobUrl = URL.createObjectURL(new Blob([workerSource], { type: "text/javascript" }));
+  const worker = new Worker(blobUrl);
+  return new Promise((resolve, reject) => {
+    let animatedPercent = 36;
+    const timer = window.setInterval(() => {
+      animatedPercent = Math.min(92, animatedPercent + 1);
+      onProgress(animatedPercent, "最適解を計算・証明しています");
+    }, 700);
+    function finish() {
+      window.clearInterval(timer);
+      worker.terminate();
+      URL.revokeObjectURL(blobUrl);
+    }
+    worker.onmessage = event => {
+      if (event.data.type === "progress") { onProgress(event.data.percent, event.data.label); return; }
+      finish();
+      if (event.data.type === "result") resolve(event.data);
+      else reject(new Error(event.data.message || "最適化エンジンでエラーが発生しました"));
+    };
+    worker.onerror = event => { finish(); reject(new Error(event.message || "最適化エンジンを読み込めませんでした")); };
+    worker.postMessage({ lp });
+  });
+}
+
+async function generateOptimized() {
+  normalizeCustomState();
+  applyBulkInputs();
+  if (state.schedule && !confirm("シフトを再生成します。現在のシフトは上書きされますがよろしいですか？")) return;
+  const precheck = buildPrecheckMessages();
+  if (!precheck.ok) {
+    document.getElementById("warnings-result").innerHTML = `<div class="validation-box validation-red"><h3>生成前チェック</h3>${precheck.messages.map(x => `<div>▶ ${x.text}</div>`).join("")}</div>`;
+    showToast("勤務回数の設定を確認してください");
+    return;
+  }
+  beginGenerationProgress();
+  try {
+    setGenerationProgress(10, "数理モデルを作成しています");
+    await yieldGenerationUI();
+    const model = buildOptimizationModel();
+    if (model.impossible.length) {
+      document.getElementById("warnings-result").innerHTML = `<div class="validation-box validation-red"><h3>必須条件を満たせません</h3>${model.impossible.map(x => `<div>▶ ${escapeHTML(x)}</div>`).join("")}<div style="margin-top:6px;">現在表示中のシフトは変更されていません。</div></div>`;
+      showToast("NG日や前回シフトの条件を確認してください");
+      endGenerationProgress(false);
+      return;
+    }
+    setGenerationProgress(22, "最適化の準備をしています");
+    const result = await solveWithHighs(model.lp, setGenerationProgress);
+    if (String(result.status).toLowerCase() !== "optimal") {
+      document.getElementById("warnings-result").innerHTML = `<div class="validation-box validation-red"><h3>必須条件を同時に満たすシフトがありません</h3><div>NG日・曜日NG・前回シフト・禁止ペア・勤務回数のいずれかを調整してください。</div><div style="margin-top:6px;">最適性を確認できない案は表示していません。現在表示中のシフトは変更されていません。</div></div>`;
+      showToast("条件を満たすシフトがありません");
+      endGenerationProgress(false);
+      return;
+    }
+    setGenerationProgress(96, "最適解を最終確認しています");
+    await yieldGenerationUI();
+    const schedule = makeEmptySchedule();
+    Object.keys(result.values).forEach(variableName => {
+      const variable = model.variables.get(variableName);
+      if (!variable) return;
+      const member = state.members[variable.memberIndex];
+      const slot = model.slots[variable.slotIndex];
+      schedule[slot.iso][slot.type].push(member.name);
+    });
+    Object.values(schedule).forEach(day => {
+      [day.day_duty, day.night_duty].forEach(list => list.sort((a, b) => yearToGroup(memberByName(a).year) === yearToGroup(memberByName(b).year) ? a.localeCompare(b, "ja") : yearToGroup(memberByName(a).year) === "B" ? -1 : 1));
+    });
+    const validation = validateSchedule(schedule);
+    if (validation.red.length) throw new Error(`最適解の検証で${validation.red.length}件の必須ルール違反を検出しました`);
+    validation.green.unshift("数理最適化: 最適性確認済み");
+    state.schedule = schedule;
+    state.stats = validation.stats;
+    state.lastValidation = validation;
+    state.warnings = [...validation.yellow.map(x => "yellow:" + x)];
+    state.swapSelection = null;
+    state.previousSchedule = null;
+    state.lastSwap = [];
+    state.swapHistory = [];
+    renderShift();
+    renderHistory();
+    showToast("最適性を確認したシフトを生成しました");
+    endGenerationProgress(true);
+  } catch (error) {
+    console.error(error);
+    document.getElementById("warnings-result").innerHTML = `<div class="validation-box validation-red"><h3>生成処理でエラーが発生しました</h3><div>${escapeHTML(error.message || String(error))}</div><div style="margin-top:6px;">通信環境を確認して再試行してください。現在表示中のシフトは変更されていません。</div></div>`;
+    showToast("シフトを生成できませんでした");
+    endGenerationProgress(false);
+  }
+}
 function makeSwapSchedule(steps, base) {
   const sch = JSON.parse(JSON.stringify(base || state.schedule));
   for (const step of steps) {
@@ -3584,7 +3830,6 @@ function applyObj(obj) {
   applyBulkInputs();
   document.getElementById("start-date").value = fmtISO(state.startDate);
   document.getElementById("end-date").value = fmtISO(state.endDate);
-  initPeriodYearSelect();
   renderMemberTable();
   renderNGTable();
   renderHolidayList();
@@ -3626,7 +3871,6 @@ document.addEventListener("mousedown", e => {
 
 // 初期レンダリング（autoLoadで applyObj が呼ばれていない場合のみ）
 if (!_autoLoaded) {
-  initPeriodYearSelect();
   renderMemberTable();
   renderNGTable();
   renderHolidayList();
