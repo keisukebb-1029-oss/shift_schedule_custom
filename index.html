@@ -54,6 +54,19 @@ h1 { font-size: 20px; font-weight: 700; color: var(--primary); }
 .input-warning { margin-top: 6px; font-size: 12px; color: var(--warning); }
 .summary-box { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 12px; font-size: 13px; }
 .summary-box strong { color: var(--primary); }
+.raw-import-box { margin-bottom: 16px; border: 2px solid #90CAF9; background: #F7FBFF; }
+.raw-import-box textarea { width: 100%; min-height: 150px; margin-top: 8px; padding: 10px; resize: vertical; border: 1px solid var(--border); border-radius: 6px; font-family: inherit; font-size: 13px; line-height: 1.6; background: #fff; }
+.raw-import-actions { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-top: 8px; }
+.raw-import-result { margin-top: 12px; overflow-x: auto; }
+.raw-import-table { width: 100%; min-width: 760px; border-collapse: collapse; background: #fff; }
+.raw-import-table th, .raw-import-table td { border: 1px solid var(--border); padding: 7px 8px; font-size: 12px; vertical-align: middle; }
+.raw-import-table th { background: #EAF4FC; white-space: nowrap; }
+.raw-import-table tr.needs-review td { background: #FFF8E1; }
+.raw-import-table select, .raw-import-table input[type="date"] { max-width: 150px; padding: 5px 6px; border: 1px solid var(--border); border-radius: 5px; font-family: inherit; font-size: 12px; background: #fff; }
+.raw-import-source { max-width: 280px; color: var(--text-muted); overflow-wrap: anywhere; }
+.raw-import-status { font-weight: 700; white-space: nowrap; }
+.raw-import-status.ok { color: var(--success); }
+.raw-import-status.review { color: var(--warning); }
 .validation-box { margin-top: 16px; border-radius: 8px; padding: 12px 14px; font-size: 13px; border: 1px solid var(--border); background: var(--surface); }
 .validation-box h3 { font-size: 14px; margin-bottom: 8px; }
 .validation-red { border-color: #EF9A9A; background: #FFEBEE; color: #B71C1C; }
@@ -317,7 +330,8 @@ td.hope-assigned { background: #FFF8E1 !important; }
   <!-- ── NG日・希望休タブ ── -->
   <div id="panel-ng" class="panel">
     <h2 class="section-title">NG日・希望休 設定</h2>
-    <p class="section-desc">前回シフトは下の小さな表で○を付けます。NG/希望休はセルクリックまたは数字入力で登録できます。</p>
+    <p class="section-desc">①名前・③NG・④希望休を含む文章は、まとめて貼り付けて確認できます。従来のセルクリック・数字入力も使えます。</p>
+    <div id="raw-import-wrap"></div>
     <div id="previous-shift-wrap"></div>
     <div id="bulk-input-wrap"></div>
     <div id="hope-summary"></div>
@@ -389,6 +403,7 @@ td.hope-assigned { background: #FFF8E1 !important; }
       <div style="background:var(--surface);border-radius:8px;box-shadow:0 1px 3px rgba(0,0,0,.06);overflow:hidden;">
         <div style="background:var(--primary);color:#fff;padding:10px 16px;font-size:14px;font-weight:700;">④ NG日・希望休の設定</div>
         <div style="padding:14px 16px;font-size:13px;line-height:1.9;">
+          <p><strong>原文まとめ入力：</strong>①名前・③NG・④希望休を含む文章を貼り付けると、複数人分をまとめて整理できます。黄色になった名前・日付・勤務種別だけ確認してから反映します。</p>
           <p>表の各セルをクリックするたびに <strong>空欄 → NG → 希望休 → 空欄</strong> と切り替わります。</p>
           <div style="display:flex;gap:12px;margin-top:8px;flex-wrap:wrap;">
             <div style="display:flex;align-items:center;gap:6px;">
@@ -2107,6 +2122,9 @@ function clearSourceForMember(name, source, kind) {
 function normalizeCustomState() {
   state.ngInputs = state.ngInputs || {};
   state.hopeInputs = state.hopeInputs || {};
+  state.rawImportText = state.rawImportText || "";
+  state.rawImportRows = state.rawImportRows || [];
+  state.rawImportWarnings = state.rawImportWarnings || [];
   state.previousInputs = state.previousInputs || {};
   state.previousSelections = state.previousSelections || {};
   state.previousWeekdayDayVisible = state.previousWeekdayDayVisible || {};
@@ -2224,17 +2242,24 @@ function buildPrecheckMessages() {
 function parseSlotInput(text, mode, memberName) {
   const tokens = String(text || "").split(/[,\u3001\uFF0C\s]+/).map(x => x.trim()).filter(Boolean);
   const dates = getDates();
-  const byDay = new Map(dates.map(d => [d.getDate(), d]));
+  const byDay = new Map();
+  dates.forEach(d => {
+    const day = d.getDate();
+    if (!byDay.has(day)) byDay.set(day, []);
+    byDay.get(day).push(d);
+  });
   const prevDates = getPreviousWindowDates();
   const prevByDay = new Map(prevDates.map(d => [d.getDate(), d]));
   const seen = new Set();
   const items = [];
   const warnings = [];
   tokens.forEach(token => {
-    const m = token.match(/^(\d{1,2})(!)?$/);
+    const m = token.match(/^(?:(\d{4})[-/])?(?:(\d{1,2})[-/])?(\d{1,2})(!)?$/);
     if (!m) { warnings.push(`${memberName}: 「${token}」を解釈できません`); return; }
-    const day = parseInt(m[1], 10);
-    const type = m[2] ? "day_duty" : "night_duty";
+    const year = m[1] ? parseInt(m[1], 10) : null;
+    const month = m[2] ? parseInt(m[2], 10) : null;
+    const day = parseInt(m[3], 10);
+    const type = m[4] ? "day_duty" : "night_duty";
     let date = null;
     if (mode === "previous") {
       date = prevByDay.get(day) || null;
@@ -2242,8 +2267,14 @@ function parseSlotInput(text, mode, memberName) {
         warnings.push(`${memberName}: 前回シフト「${token}」は開始日前3日間に含まれないため無視しました`);
         return;
       }
+    } else if (year && month) {
+      date = dates.find(d => d.getFullYear() === year && d.getMonth() + 1 === month && d.getDate() === day) || null;
+    } else if (month) {
+      date = dates.find(d => d.getMonth() + 1 === month && d.getDate() === day) || null;
     } else {
-      date = byDay.get(day);
+      const matches = byDay.get(day) || [];
+      if (matches.length > 1) { warnings.push(`${memberName}: ${day}日は期間内に複数あるため、月/日で入力してください`); return; }
+      date = matches[0] || null;
     }
     if (!date) { warnings.push(`${memberName}: ${day}日は期間内に存在しません`); return; }
     if (type === "day_duty" && mode !== "previous" && !isHoliday(date)) {
@@ -3519,6 +3550,243 @@ function applyManualMove(from, to) {
   renderShift();
   showSwapDone(`手動変更完了: <strong>${sourceName}</strong>${destName ? ` ⇄ <strong>${destName}</strong>` : " を移動"}`);
 }
+const DEFAULT_NAME_READINGS = {
+  "馬場": ["ばば"], "下田": ["しもだ"], "実松": ["さねまつ", "じつまつ"],
+  "和田": ["わだ"], "堀井": ["ほりい"], "唐鎌": ["からかま"],
+  "前田": ["まえだ"], "東": ["ひがし", "あずま"], "仮元": ["かりもと", "かもと"],
+  "山口": ["やまぐち"], "埴岡": ["はにおか"], "中村": ["なかむら"],
+  "眞部": ["まなべ", "しんべ"], "島田": ["しまだ"]
+};
+
+function normalizeRequestText(text) {
+  return String(text || "")
+    .replace(/[０-９]/g, ch => String.fromCharCode(ch.charCodeAt(0) - 0xFEE0))
+    .replace(/[／]/g, "/").replace(/[．]/g, ".").replace(/[，]/g, ",")
+    .replace(/\r\n?/g, "\n");
+}
+function normalizeNameReading(text) {
+  return normalizeRequestText(text)
+    .replace(/[ァ-ヶ]/g, ch => String.fromCharCode(ch.charCodeAt(0) - 0x60))
+    .replace(/(?:先生|氏名|名前|さん|様)/g, "")
+    .replace(/[\s　:：・,，、]/g, "")
+    .toLowerCase();
+}
+function findRequestMember(rawName) {
+  const normalized = normalizeNameReading(rawName);
+  if (!normalized) return "";
+  const candidates = [];
+  state.members.forEach(member => {
+    candidates.push({ name: member.name, alias: normalizeNameReading(member.name) });
+    (DEFAULT_NAME_READINGS[member.name] || []).forEach(reading => candidates.push({ name: member.name, alias: normalizeNameReading(reading) }));
+  });
+  candidates.sort((a, b) => b.alias.length - a.alias.length);
+  const exact = candidates.find(candidate => candidate.alias === normalized);
+  if (exact) return exact.name;
+  const contained = candidates.filter(candidate => candidate.alias && normalized.includes(candidate.alias));
+  return new Set(contained.map(candidate => candidate.name)).size === 1 ? contained[0].name : "";
+}
+function stripRequestReasons(text) {
+  let result = text;
+  for (let i = 0; i < 3; i++) result = result.replace(/（[^（）]*）|\([^()]*\)/g, " ");
+  return result;
+}
+function resolveRequestDate(month, day) {
+  return getDates().find(date => date.getMonth() + 1 === month && date.getDate() === day) || null;
+}
+function requestDutyFromContext(context) {
+  const compact = String(context || "").replace(/\s+/g, "");
+  if (/日当直/.test(compact) || (/日直/.test(compact) && /(?:当直|夜間)/.test(compact))) return "both";
+  if (/日直/.test(compact)) return "day_duty";
+  if (/(?:当直|夜間)/.test(compact)) return "night_duty";
+  return "";
+}
+function requestRowIssues(row) {
+  const issues = [];
+  if (!row.memberName) issues.push("名前");
+  if (row.rowType === "weekday") {
+    if (!row.weekdays?.length) issues.push("曜日");
+  } else {
+    if (!row.iso) issues.push("日付");
+    if (!row.duty) issues.push("勤務種別");
+    if (row.iso) {
+      const date = new Date(row.iso + "T00:00:00");
+      if (date < state.startDate || date > state.endDate) issues.push("期間外");
+      if (row.duty === "day_duty" && !isHoliday(date)) issues.push("平日の日直");
+    }
+  }
+  return issues;
+}
+function parseRequestSection(sectionText, kind, memberName, rawName) {
+  const cleaned = stripRequestReasons(sectionText);
+  const rows = [];
+  const weekdayPattern = /([日月火水木金土](?:\s*[、,・／/と]\s*[日月火水木金土])*)\s*(?:曜(?:日)?)?\s*(?:は|が)?[^。\n]{0,10}?当直\s*(?:×|x|X|不可|NG)/g;
+  let weekdayMatch;
+  while ((weekdayMatch = weekdayPattern.exec(cleaned))) {
+    const weekdays = [...new Set([...weekdayMatch[1]].filter(ch => WEEKDAY_JP.includes(ch)).map(ch => WEEKDAY_KEYS[WEEKDAY_JP.indexOf(ch)]))];
+    rows.push({ enabled: true, rowType: "weekday", memberName, rawName, kind: "NG", weekdays, duty: "night_duty", iso: "", source: weekdayMatch[0].trim() });
+  }
+  const datePattern = /(\d{1,2})\s*\/\s*(\d{1,2}(?:\s*[.・]\s*\d{1,2})*)/g;
+  const matches = [];
+  let match;
+  while ((match = datePattern.exec(cleaned))) matches.push({ match, index: match.index });
+  matches.forEach((item, matchIndex) => {
+    const month = parseInt(item.match[1], 10);
+    const days = item.match[2].split(/\s*[.・]\s*/).map(Number);
+    const nextIndex = matches[matchIndex + 1]?.index ?? cleaned.length;
+    const context = cleaned.slice(item.match.index + item.match[0].length, nextIndex).split(/[、,，。\n]/)[0].slice(0, 40);
+    const vacation = /有給|年休|休暇/.test(context);
+    const explicitDuty = requestDutyFromContext(context);
+    days.forEach(day => {
+      const date = resolveRequestDate(month, day);
+      let duty = explicitDuty;
+      if (vacation && date) duty = isHoliday(date) ? "both" : "night_duty";
+      if (!duty && date && !isHoliday(date)) duty = "night_duty";
+      rows.push({
+        enabled: true, rowType: "date", memberName, rawName, kind,
+        weekdays: [], iso: date ? fmtISO(date) : "", duty,
+        source: `${month}/${day}${context ? " " + context.trim() : ""}`.trim(),
+      });
+      if (vacation && date) {
+        const previous = new Date(date);
+        previous.setDate(previous.getDate() - 1);
+        if (previous >= state.startDate && previous <= state.endDate) {
+          rows.push({ enabled: true, rowType: "date", memberName, rawName, kind: "NG", weekdays: [], iso: fmtISO(previous), duty: "night_duty", source: `${month}/${day} 有給前日の当直` });
+        }
+      }
+    });
+  });
+  return rows;
+}
+function parseRawRequests(text) {
+  const normalized = normalizeRequestText(text);
+  const starts = [...normalized.matchAll(/①/g)].map(match => match.index);
+  const blocks = starts.length
+    ? starts.map((start, index) => normalized.slice(start, starts[index + 1] ?? normalized.length))
+    : [normalized];
+  const rows = [];
+  const warnings = [];
+  blocks.filter(block => block.trim()).forEach((block, blockIndex) => {
+    const nameMatch = block.match(/①([\s\S]*?)(?=②|③|④|$)/);
+    const rawName = (nameMatch?.[1] || "").trim();
+    const memberName = findRequestMember(rawName);
+    if (!rawName) warnings.push(`${blockIndex + 1}人目: ①名前を読み取れませんでした`);
+    else if (!memberName) warnings.push(`${rawName}: 登録メンバーと照合できませんでした。確認欄で名前を選んでください`);
+    const ngSection = block.match(/③([\s\S]*?)(?=④|$)/);
+    const hopeSection = block.match(/④([\s\S]*?)$/);
+    if (ngSection) {
+      const parsedNG = parseRequestSection(ngSection[1], "NG", memberName, rawName);
+      rows.push(...parsedNG);
+      if (!parsedNG.length && ngSection[1].trim()) warnings.push(`${rawName || `${blockIndex + 1}人目`}: ③NGの日付を読み取れませんでした。手入力してください`);
+    }
+    if (hopeSection) {
+      const parsedHope = parseRequestSection(hopeSection[1], "希望休", memberName, rawName);
+      rows.push(...parsedHope);
+      if (!parsedHope.length && hopeSection[1].trim()) warnings.push(`${rawName || `${blockIndex + 1}人目`}: ④希望休の日付を読み取れませんでした。手入力してください`);
+    }
+    if (!ngSection && !hopeSection) warnings.push(`${rawName || `${blockIndex + 1}人目`}: ③NG・④希望休を読み取れませんでした`);
+  });
+  const seen = new Set();
+  const deduped = rows.filter(row => {
+    const key = [row.memberName || row.rawName, row.kind, row.rowType, row.iso, row.duty, (row.weekdays || []).join("|")].join("_");
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+  return { rows: deduped, warnings };
+}
+function readRawRequests() {
+  normalizeCustomState();
+  const textarea = document.getElementById("raw-import-text");
+  if (textarea) state.rawImportText = textarea.value;
+  const parsed = parseRawRequests(state.rawImportText);
+  state.rawImportRows = parsed.rows;
+  state.rawImportWarnings = parsed.warnings;
+  renderRawImport();
+  if (!parsed.rows.length) showToast("読み取れる日付がありませんでした");
+}
+function updateRawImportRow(index, field, value) {
+  const row = state.rawImportRows[index];
+  if (!row) return;
+  row[field] = field === "enabled" ? !!value : value;
+  renderRawImport();
+}
+function appendRequestToken(existing, iso, duty) {
+  const token = iso + (duty === "day_duty" ? "!" : "");
+  const tokens = String(existing || "").split(/[,\u3001\uFF0C\s]+/).filter(Boolean);
+  if (!tokens.includes(token)) tokens.push(token);
+  return tokens.join(",");
+}
+function applyRawRequests() {
+  normalizeCustomState();
+  const selected = state.rawImportRows.filter(row => row.enabled);
+  const unresolved = selected.filter(row => requestRowIssues(row).length);
+  if (unresolved.length) {
+    state.rawImportWarnings = [`未確認が${unresolved.length}件あります。黄色の行を修正するか、「反映」のチェックを外してください`];
+    renderRawImport();
+    showToast("黄色の項目を確認してください");
+    return;
+  }
+  if (!selected.length) { showToast("反映する項目がありません"); return; }
+  selected.forEach(row => {
+    const member = memberByName(row.memberName);
+    if (row.rowType === "weekday") {
+      member.weekdayNightNg = member.weekdayNightNg || {};
+      row.weekdays.forEach(key => { member.weekdayNightNg[key] = true; });
+      return;
+    }
+    const date = new Date(row.iso + "T00:00:00");
+    const duties = row.duty === "both" ? (isHoliday(date) ? ["day_duty", "night_duty"] : ["night_duty"]) : [row.duty];
+    duties.forEach(duty => {
+      const field = row.kind === "NG" ? "ngInputs" : "hopeInputs";
+      state[field][row.memberName] = appendRequestToken(state[field][row.memberName], row.iso, duty);
+    });
+  });
+  const appliedCount = selected.length;
+  state.rawImportText = "";
+  state.rawImportRows = [];
+  state.rawImportWarnings = [];
+  applyBulkInputs();
+  showToast(`${appliedCount}件をNG・希望休へ反映しました`);
+}
+function renderRawImport() {
+  normalizeCustomState();
+  const wrap = document.getElementById("raw-import-wrap");
+  if (!wrap) return;
+  const rows = state.rawImportRows || [];
+  let html = `<div class="summary-box raw-import-box"><strong>原文まとめ入力</strong>
+    <div style="margin-top:4px;">①名前・③NG・④希望休を含む文章を、複数人分まとめて貼り付けできます。理由文は登録せず、読めない箇所だけ黄色で確認します。</div>
+    <textarea id="raw-import-text" placeholder="例：\n①ばば\n②小児科\n③9/26当直、9/27日当直\n④10/10、10/11日直\n\n①山口\n③月曜は当直×\n④10/3当直" oninput="state.rawImportText=this.value;">${escapeHTML(state.rawImportText || "")}</textarea>
+    <div class="raw-import-actions"><button class="btn btn-primary btn-sm" onclick="readRawRequests()">文章を読み取る</button><span style="font-size:12px;color:var(--text-muted);">漢字・ひらがな対応／複数人まとめて可</span></div>`;
+  if (state.rawImportWarnings?.length) html += `<div class="input-warning">${state.rawImportWarnings.map(warning => `▶ ${escapeHTML(warning)}`).join("<br>")}</div>`;
+  if (rows.length) {
+    const ready = rows.filter(row => !requestRowIssues(row).length).length;
+    html += `<div class="raw-import-result"><div style="margin-bottom:6px;"><strong>読み取り結果 ${rows.length}件</strong>（確認済み ${ready}／要確認 ${rows.length - ready}）</div>
+      <table class="raw-import-table"><thead><tr><th>反映</th><th>名前</th><th>区分</th><th>日付・曜日</th><th>勤務</th><th>読み取った部分</th><th>状態</th></tr></thead><tbody>`;
+    rows.forEach((row, index) => {
+      const issues = requestRowIssues(row);
+      const memberOptions = [`<option value="">名前を選択</option>`, ...state.members.map(member => `<option value="${escapeAttr(member.name)}" ${member.name === row.memberName ? "selected" : ""}>${escapeHTML(member.name)}</option>`)].join("");
+      const kindOptions = ["NG", "希望休"].map(kind => `<option value="${kind}" ${kind === row.kind ? "selected" : ""}>${kind}</option>`).join("");
+      const dutyOptions = [["", "勤務を選択"], ["night_duty", "当直"], ["day_duty", "日直"], ["both", "日直＋当直"]]
+        .map(([value, label]) => `<option value="${value}" ${value === row.duty ? "selected" : ""}>${label}</option>`).join("");
+      const dateCell = row.rowType === "weekday"
+        ? `毎週 ${(row.weekdays || []).map(key => WEEKDAY_JP[WEEKDAY_KEYS.indexOf(key)]).join("・")}曜`
+        : `<input type="date" value="${escapeAttr(row.iso || "")}" onchange="updateRawImportRow(${index},'iso',this.value)">`;
+      html += `<tr class="${issues.length ? "needs-review" : ""}">
+        <td><input type="checkbox" ${row.enabled ? "checked" : ""} onchange="updateRawImportRow(${index},'enabled',this.checked)"></td>
+        <td><select onchange="updateRawImportRow(${index},'memberName',this.value)">${memberOptions}</select>${!row.memberName && row.rawName ? `<div class="input-warning">読取: ${escapeHTML(row.rawName)}</div>` : ""}</td>
+        <td><select onchange="updateRawImportRow(${index},'kind',this.value)" ${row.rowType === "weekday" ? "disabled" : ""}>${kindOptions}</select></td>
+        <td>${dateCell}</td>
+        <td>${row.rowType === "weekday" ? "当直" : `<select onchange="updateRawImportRow(${index},'duty',this.value)">${dutyOptions}</select>`}</td>
+        <td class="raw-import-source">${escapeHTML(row.source)}</td>
+        <td><span class="raw-import-status ${issues.length ? "review" : "ok"}">${issues.length ? `要確認: ${issues.join("・")}` : "確認済み"}</span></td>
+      </tr>`;
+    });
+    html += `</tbody></table></div><div class="raw-import-actions"><button class="btn btn-primary btn-sm" onclick="applyRawRequests()">確認した内容を一括反映</button><span style="font-size:12px;color:var(--text-muted);">不要な行は「反映」のチェックを外してください</span></div>`;
+  }
+  html += `</div>`;
+  wrap.innerHTML = html;
+}
+
 function renderBulkInputs() {
   normalizeCustomState();
   const wrap = document.getElementById("bulk-input-wrap");
@@ -3631,6 +3899,7 @@ function renderHopeSummary() {
 }
 function renderNGTable() {
   normalizeCustomState();
+  renderRawImport();
   renderBulkInputs();
   renderHopeSummary();
   const dates = getDates();
@@ -3775,6 +4044,7 @@ function stateToObj() {
     ngDays: state.ngDays,
     ngInputs: state.ngInputs,
     hopeInputs: state.hopeInputs,
+    rawImportText: state.rawImportText,
     previousInputs: state.previousInputs,
     previousSelections: state.previousSelections,
     previousWeekdayDayVisible: state.previousWeekdayDayVisible,
@@ -3805,6 +4075,9 @@ function applyObj(obj) {
   state.ngDays = obj.ngDays || {};
   state.ngInputs = obj.ngInputs || {};
   state.hopeInputs = obj.hopeInputs || {};
+  state.rawImportText = obj.rawImportText || "";
+  state.rawImportRows = [];
+  state.rawImportWarnings = [];
   state.previousInputs = obj.previousInputs || {};
   state.previousSelections = obj.previousSelections || {};
   state.previousWeekdayDayVisible = obj.previousWeekdayDayVisible || {};
