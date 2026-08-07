@@ -159,6 +159,12 @@ td.swap-done { background: #E8F5E9 !important; outline: 2px solid #2E7D32; outli
 
 .generate-area { text-align: center; padding: 32px 0; }
 .generate-area p { margin-top: 12px; font-size: 13px; color: var(--text-muted); }
+.generation-progress { display:none; max-width:520px; margin:18px auto 0; text-align:left; }
+.generation-progress.visible { display:block; }
+.generation-progress-head { display:flex; justify-content:space-between; gap:12px; margin-bottom:6px; font-size:12px; color:var(--text-muted); }
+.generation-progress-track { height:10px; overflow:hidden; border-radius:999px; background:#E0E0E0; }
+.generation-progress-bar { width:0; height:100%; border-radius:inherit; background:var(--primary); transition:width .18s ease; }
+.btn:disabled { opacity:.6; cursor:wait; }
 
 .period-row { display: flex; gap: 12px; align-items: center; margin-bottom: 16px; flex-wrap: wrap; }
 .period-row label { font-size: 14px; font-weight: 500; }
@@ -261,8 +267,12 @@ td.hope-assigned { background: #FFF8E1 !important; }
   <!-- ── シフト表タブ ── -->
   <div id="panel-shift" class="panel active">
     <div class="generate-area">
-      <button class="btn btn-primary btn-lg" onclick="generate()">&#x1F3B2; シフト生成</button>
-      <p>ボタンを押すたびに、制約を守りながらランダムなシフトが生成されます</p>
+      <button id="generate-btn" class="btn btn-primary btn-lg" onclick="generate()">&#x1F3B2; シフト生成</button>
+      <p>必須ルールを守る候補から、希望休と年次構成が最も良い1案を選びます</p>
+      <div id="generation-progress" class="generation-progress" role="status" aria-live="polite">
+        <div class="generation-progress-head"><span id="generation-progress-label">生成を準備しています</span><strong id="generation-progress-percent">0%</strong></div>
+        <div class="generation-progress-track"><div id="generation-progress-bar" class="generation-progress-bar"></div></div>
+      </div>
     </div>
     <p id="swap-hint" class="section-desc" style="display:none;">名前をクリックすると交換候補が表示されます。</p>
     <div id="manual-controls" class="manual-controls">
@@ -342,7 +352,7 @@ td.hope-assigned { background: #FFF8E1 !important; }
         <div style="padding:14px 16px;font-size:13px;line-height:1.9;">
           <p>「シフト表」タブの <strong>「シフト生成」ボタン</strong> を押すと、全ルールを守ったシフトが自動で作られます。</p>
           <ul style="margin:8px 0 0 16px;">
-            <li>ボタンを押すたびに<strong>ランダムに再生成</strong>されます（すでにシフトがある場合は確認ダイアログが表示されます）</li>
+            <li>ボタンを押すと進捗率が表示され、必須ルールを守る候補の中から最も適切な1案を選びます（すでにシフトがある場合は確認ダイアログが表示されます）</li>
             <li>生成後はシフト表・割当統計・警告が同じ画面に表示されます</li>
             <li>⚠ マークがついた割当は「希望休だが割り当てられた」ことを示します</li>
           </ul>
@@ -469,7 +479,7 @@ td.hope-assigned { background: #FFF8E1 !important; }
         <li><span class="rule-icon hard">8</span><div><strong>NG日は絶対不可</strong><br>NGと設定された日には、いかなる場合もシフトを入れません。</div></li>
         <li><span class="rule-icon hard">9</span><div><strong>平日金曜当直は1年目1人のみ</strong><br>金曜日が平日の場合、当直は必ず1年目1人のみです。2年目や1年目2人は不可です。</div></li>
         <li><span class="rule-icon soft">10</span><div><strong>各枠の1人目は1年目を優先</strong><br>まず1年目で各枠を埋めます。1年目全員がNG・希望休・勤務間隔などで入れない枠では、2年目単独を許容します。</div></li>
-        <li><span class="rule-icon soft">11</span><div><strong>希望休を優先して回避</strong><br>希望休の回避を2年目単独の回避より優先します。2人目は1年目＋2年目の組み合わせを優先し、1年目同士をなるべく減らします。</div></li>
+        <li><span class="rule-icon soft">11</span><div><strong>希望休を優先して回避</strong><br>必須ルールを守る案の中から、希望休 → 2年目単独 → 1年目同士の順に少ない案を選びます。どうしても必要な場合だけ、優先順位の低い条件を最小限緩めます。</div></li>
         <li><span class="rule-icon hard">12</span><div><strong>設定した勤務回数は必ず守る</strong><br>各メンバーに設定した平日・休日の回数は必ず守ります。合計回数は、平日・休日それぞれの許容範囲内で生成します。</div></li>
         <li><span class="rule-icon hard">13</span><div><strong>全スロット最低1名</strong><br>すべてのスロットに最低1名は配置されます（0名の日は発生しません）。</div></li>
       </ul>
@@ -2087,6 +2097,15 @@ function getFirstYearPairCount(schedule) {
   });
   return count;
 }
+function getActiveSlotCount() {
+  return getDates().reduce((sum, dt) => sum + (isHoliday(dt) ? 2 : 1), 0);
+}
+function getTheoreticalMinimumSeniorSolo() {
+  const firstYearAssignments = state.members
+    .filter(m => yearToGroup(m.year) === "B")
+    .reduce((sum, m) => sum + m.weekdayTarget + m.holidayTarget, 0);
+  return Math.max(0, getActiveSlotCount() - firstYearAssignments);
+}
 function getNGValue(name, dateOrISO, type) {
   const date = typeof dateOrISO === "string" ? new Date(dateOrISO + "T00:00:00") : dateOrISO;
   const autoKey = ngKey(name, date, type) + "_auto_prev";
@@ -2418,6 +2437,100 @@ function scoreSchedule(schedule, validation) {
     - relaxedWarnings * 80
     - v.yellow.length * 10;
 }
+function scheduleQuality(schedule, validation) {
+  const v = validation || validateSchedule(schedule);
+  const solo = v.seniorSoloDetails || getSeniorSoloDetails(schedule);
+  return {
+    red: v.red.length,
+    hope: v.yellow.filter(x => x.includes("希望休")).length,
+    seniorSolo: solo.length,
+    firstYearPairs: getFirstYearPairCount(schedule),
+    relaxed: v.yellow.filter(x => x.includes("中2日")).length,
+    yellow: v.yellow.length,
+  };
+}
+function compareScheduleQuality(a, b) {
+  if (!b) return -1;
+  const keys = ["red", "hope", "seniorSolo", "firstYearPairs", "relaxed", "yellow"];
+  for (const key of keys) {
+    if (a[key] !== b[key]) return a[key] - b[key];
+  }
+  return 0;
+}
+function cloneSchedule(schedule) {
+  return JSON.parse(JSON.stringify(schedule));
+}
+function swapAssignmentNames(schedule, a, b, three = null) {
+  const next = cloneSchedule(schedule);
+  if (!three) {
+    next[a.iso][a.type][a.idx] = b.name;
+    next[b.iso][b.type][b.idx] = a.name;
+  } else {
+    next[a.iso][a.type][a.idx] = b.name;
+    next[b.iso][b.type][b.idx] = three.name;
+    next[three.iso][three.type][three.idx] = a.name;
+  }
+  return next;
+}
+async function improveGeneratedSchedule(schedule, onProgress) {
+  let current = cloneSchedule(schedule);
+  let validation = validateSchedule(current);
+  let quality = scheduleQuality(current, validation);
+  if (quality.red > 0) return { schedule: current, validation, quality };
+
+  // 同じ平日区分・休日区分の勤務者を交換すれば、各人の回数は変わらない。
+  for (let pass = 0; pass < 4; pass++) {
+    if (onProgress) await onProgress(pass / 8, "2人交換で希望休を調整しています");
+    const entries = shuffle(getSlotEntries(current));
+    let improved = false;
+    outer:
+    for (let i = 0; i < entries.length - 1; i++) {
+      for (let j = i + 1; j < entries.length; j++) {
+        const a = entries[i], b = entries[j];
+        if (a.name === b.name || (a.iso === b.iso && a.type === b.type)) continue;
+        if (isHoliday(a.date) !== isHoliday(b.date)) continue;
+        const candidate = swapAssignmentNames(current, a, b);
+        const candidateValidation = validateSchedule(candidate);
+        if (candidateValidation.red.length > 0) continue;
+        const candidateQuality = scheduleQuality(candidate, candidateValidation);
+        if (compareScheduleQuality(candidateQuality, quality) < 0) {
+          current = candidate;
+          validation = candidateValidation;
+          quality = candidateQuality;
+          improved = true;
+          break outer;
+        }
+      }
+    }
+    if (!improved) break;
+  }
+
+  // 2人交換で解けない割当を、限定的な3人循環交換で改善する。
+  const tripleTrials = 800;
+  for (let trial = 0; trial < tripleTrials; trial++) {
+    if (onProgress && trial % 50 === 0) await onProgress(0.5 + (trial / tripleTrials) * 0.5, "3人交換で最終調整しています");
+    const entries = getSlotEntries(current);
+    if (entries.length < 3) break;
+    const a = entries[Math.floor(Math.random() * entries.length)];
+    const sameKind = entries.filter(x => x.name !== a.name && isHoliday(x.date) === isHoliday(a.date));
+    if (sameKind.length < 2) break;
+    const b = sameKind[Math.floor(Math.random() * sameKind.length)];
+    const thirdPool = sameKind.filter(x => x.name !== b.name && !(x.iso === b.iso && x.type === b.type));
+    if (!thirdPool.length) continue;
+    const c = thirdPool[Math.floor(Math.random() * thirdPool.length)];
+    if ((a.iso === b.iso && a.type === b.type) || (a.iso === c.iso && a.type === c.type)) continue;
+    const candidate = swapAssignmentNames(current, a, b, c);
+    const candidateValidation = validateSchedule(candidate);
+    if (candidateValidation.red.length > 0) continue;
+    const candidateQuality = scheduleQuality(candidate, candidateValidation);
+    if (compareScheduleQuality(candidateQuality, quality) < 0) {
+      current = candidate;
+      validation = candidateValidation;
+      quality = candidateQuality;
+    }
+  }
+  return { schedule: current, validation, quality };
+}
 function recalcStats() {
   const validation = validateSchedule(state.schedule, { allowNightDutyGap2: true });
   state.stats = validation.stats;
@@ -2534,7 +2647,35 @@ function makeEmptySchedule() {
   getDates().forEach(d => { schedule[fmtISO(d)] = { day_duty: [], night_duty: [] }; });
   return schedule;
 }
-function generate() {
+function setGenerationProgress(percent, label) {
+  const box = document.getElementById("generation-progress");
+  const bar = document.getElementById("generation-progress-bar");
+  const pct = document.getElementById("generation-progress-percent");
+  const text = document.getElementById("generation-progress-label");
+  const value = Math.max(0, Math.min(100, Math.round(percent)));
+  if (box) box.classList.add("visible");
+  if (bar) bar.style.width = value + "%";
+  if (pct) pct.textContent = value + "%";
+  if (text) text.textContent = label;
+}
+function beginGenerationProgress() {
+  const button = document.getElementById("generate-btn");
+  if (button) button.disabled = true;
+  setGenerationProgress(1, "条件を確認しています");
+}
+function endGenerationProgress(success) {
+  const button = document.getElementById("generate-btn");
+  if (button) button.disabled = false;
+  setGenerationProgress(100, success ? "最適なシフトを作成しました" : "生成できませんでした");
+  window.setTimeout(() => {
+    const box = document.getElementById("generation-progress");
+    if (box) box.classList.remove("visible");
+  }, 1800);
+}
+function yieldGenerationUI() {
+  return new Promise(resolve => window.setTimeout(resolve, 0));
+}
+async function generate() {
   normalizeCustomState();
   applyBulkInputs();
   if (state.schedule && !confirm("シフトを再生成します。現在のシフトは上書きされますがよろしいですか？")) return;
@@ -2559,9 +2700,12 @@ function generate() {
     document.getElementById("warnings-result").innerHTML = `<div class="validation-box validation-red"><h3>生成前チェック</h3>${precheck.messages.map(x => `<div>▶ ${x.text}</div>`).join("")}${setupMessages.filter(x => !precheck.messages.some(m => m.text === x)).map(x => `<div>▶ ${x}</div>`).join("")}</div>`;
     return;
   }
+  beginGenerationProgress();
+  await yieldGenerationUI();
   let best = null;
   let bestValidation = null;
-  const MAX = 4000;
+  let bestQuality = null;
+  const MAX = 6000;
   function buildUnits() {
     const units = [];
     capacity.weekdayDates.forEach(dt => units.push({ date: dt, type: "night_duty", required: true, phase: "primary" }));
@@ -2595,11 +2739,25 @@ function generate() {
     });
   }
   for (let attempt = 0; attempt < MAX; attempt++) {
+    if (attempt % 100 === 0) {
+      setGenerationProgress(5 + (attempt / MAX) * 78, `候補を比較しています（${attempt.toLocaleString()} / ${MAX.toLocaleString()}）`);
+      await yieldGenerationUI();
+    }
     const schedule = makeEmptySchedule();
     const counts = {};
     const duties = {};
     members.forEach(m => { counts[m.name] = { weekday: 0, holiday: 0 }; duties[m.name] = []; });
     const slots = buildUnits();
+    const futureEligible = {};
+    members.forEach(m => {
+      futureEligible[m.name] = { weekday: 0, holiday: 0 };
+      slots.forEach(slot => {
+        const hol = isHoliday(slot.date);
+        if (getNGValue(m.name, slot.date, slot.type) === "NG") return;
+        if (!hol && isFriday(slot.date) && group[m.name] !== "B") return;
+        futureEligible[m.name][hol ? "holiday" : "weekday"]++;
+      });
+    });
     function canPlace(m, slot) {
       const iso = fmtISO(slot.date);
       const hol = isHoliday(slot.date);
@@ -2622,6 +2780,13 @@ function generate() {
     }
     for (const slot of slots) {
       const iso = fmtISO(slot.date);
+      const hol = isHoliday(slot.date);
+      const countKind = hol ? "holiday" : "weekday";
+      members.forEach(m => {
+        if (getNGValue(m.name, slot.date, slot.type) === "NG") return;
+        if (!hol && isFriday(slot.date) && group[m.name] !== "B") return;
+        futureEligible[m.name][countKind]--;
+      });
       let cands = members.filter(m => canPlace(m, slot));
       if (!cands.length) continue;
       cands.sort((a,b) => {
@@ -2629,6 +2794,8 @@ function generate() {
         const bh = getNGValue(b.name, slot.date, slot.type) === "希望休" ? 1 : 0;
         const ar = isHoliday(slot.date) ? (a.holidayTarget - counts[a.name].holiday) : (a.weekdayTarget - counts[a.name].weekday);
         const br = isHoliday(slot.date) ? (b.holidayTarget - counts[b.name].holiday) : (b.weekdayTarget - counts[b.name].weekday);
+        const aSlack = futureEligible[a.name][countKind] - (ar - 1);
+        const bSlack = futureEligible[b.name][countKind] - (br - 1);
         const slotMembers = schedule[iso][slot.type];
         function yearPriority(m) {
           const isFirstYear = group[m.name] === "B";
@@ -2639,7 +2806,7 @@ function generate() {
           if (hasSecondYear) return isFirstYear ? 0 : 30;
           return isFirstYear ? 0 : 20;
         }
-        return ah - bh || yearPriority(a) - yearPriority(b) || br - ar || Math.random() - 0.5;
+        return aSlack - bSlack || ah - bh || yearPriority(a) - yearPriority(b) || br - ar || Math.random() - 0.5;
       });
       const chosen = cands[0];
       schedule[iso][slot.type].push(chosen.name);
@@ -2648,10 +2815,29 @@ function generate() {
       duties[chosen.name].push({ date: slot.date, type: slot.type });
     }
     const validation = validateSchedule(schedule);
-    if (!bestValidation || validation.score > bestValidation.score) { best = schedule; bestValidation = validation; }
-    const hopeCount = validation.yellow.filter(x => x.includes("希望休")).length;
-    if (validation.red.length === 0 && hopeCount === 0 && getFirstYearPairCount(schedule) === 0 && (validation.seniorSoloDetails || []).length === 0) break;
+    if (validation.red.length > 0) continue;
+    const quality = scheduleQuality(schedule, validation);
+    if (!bestQuality || compareScheduleQuality(quality, bestQuality) < 0) {
+      best = schedule;
+      bestValidation = validation;
+      bestQuality = quality;
+    }
+    if (quality.hope === 0 && quality.seniorSolo <= getTheoreticalMinimumSeniorSolo() && quality.firstYearPairs === 0) break;
   }
+  if (!best || !bestValidation) {
+    document.getElementById("warnings-result").innerHTML = `<div class="validation-box validation-red"><h3>完全なシフトを生成できませんでした</h3><div>勤務回数や赤ルールを満たさない案は採用していません。NG日・曜日NG・前回シフトの条件を確認して、もう一度生成してください。</div><div style="margin-top:6px;">現在表示中のシフトは変更されていません。</div></div>`;
+    showToast("完全なシフトを生成できませんでした。条件を確認してください。");
+    endGenerationProgress(false);
+    return;
+  }
+  setGenerationProgress(84, "希望休と年次構成を調整しています");
+  await yieldGenerationUI();
+  const improved = await improveGeneratedSchedule(best, async (fraction, label) => {
+    setGenerationProgress(84 + fraction * 15, label);
+    await yieldGenerationUI();
+  });
+  best = improved.schedule;
+  bestValidation = improved.validation;
   state.schedule = best;
   state.stats = bestValidation.stats;
   state.lastValidation = bestValidation;
@@ -2662,7 +2848,8 @@ function generate() {
   state.swapHistory = [];
   renderShift();
   renderHistory();
-  if (bestValidation.red.length > 0) showToast("赤ルール違反なしの生成に失敗しました。警告を確認してください。");
+  showToast("勤務回数・赤ルールを満たすシフトを生成しました");
+  endGenerationProgress(true);
 }
 function makeSwapSchedule(steps, base) {
   const sch = JSON.parse(JSON.stringify(base || state.schedule));
@@ -3298,6 +3485,10 @@ function renderShift() {
   let wHtml = "";
   const precheck = buildPrecheckMessages();
   wHtml += `<div class="validation-box"><h3>回数チェック</h3>${precheck.messages.map(x => `<div>▶ ${x.text}</div>`).join("")}</div>`;
+  const actualSeniorSolo = (v.seniorSoloDetails || []).length;
+  const minimumSeniorSolo = getTheoreticalMinimumSeniorSolo();
+  const firstYearPairs = getFirstYearPairCount(state.schedule);
+  wHtml += `<div class="validation-box"><h3>年次構成</h3><div>▶ 2年目単独: ${actualSeniorSolo}枠（設定回数から求めた理論上の最低 ${minimumSeniorSolo}枠）</div><div>▶ 1年目同士: ${firstYearPairs}枠</div></div>`;
   if (v.red.length) wHtml += `<div class="validation-box validation-red"><h3>赤ルール違反（${v.red.length}件）</h3>${v.red.map(x => `<div>▶ ${x}</div>`).join("")}</div>`;
   const yellowHtml = renderYellowWarnings(v);
   if (yellowHtml) wHtml += yellowHtml;
