@@ -69,6 +69,12 @@ h1 { font-size: 20px; font-weight: 700; color: var(--primary); }
 .raw-import-status { font-weight: 700; white-space: nowrap; }
 .raw-import-status.ok { color: var(--success); }
 .raw-import-status.review { color: var(--warning); }
+.raw-import-reason { width: 220px; min-width: 160px; padding: 5px 6px; border: 1px solid var(--border); border-radius: 5px; font-family: inherit; font-size: 12px; background: #fff; }
+.raw-import-guide { margin-top: 8px; padding: 8px 10px; border-radius: 6px; background: #E3F2FD; color: #0D47A1; line-height: 1.6; }
+.ng-cell.has-reason { position: relative; cursor: help; }
+.ng-cell.has-reason::after { content: attr(data-reason); position: absolute; z-index: 20; left: 50%; bottom: calc(100% + 7px); transform: translateX(-50%); width: max-content; max-width: 260px; padding: 7px 9px; border-radius: 6px; background: #263238; color: #fff; font-size: 12px; font-weight: 500; line-height: 1.45; white-space: normal; text-align: left; opacity: 0; visibility: hidden; pointer-events: none; box-shadow: 0 3px 10px rgba(0,0,0,.22); }
+.ng-cell.has-reason:hover::after, .ng-cell.has-reason:focus::after, .ng-cell.has-reason:focus-within::after { opacity: 1; visibility: visible; }
+.ng-reason-mark { display: inline-flex; align-items: center; justify-content: center; width: 15px; height: 15px; margin-left: 3px; border-radius: 50%; background: rgba(255,255,255,.75); color: #6D4C41; font-size: 10px; font-weight: 700; vertical-align: middle; cursor: help; }
 .validation-box { margin-top: 16px; border-radius: 8px; padding: 12px 14px; font-size: 13px; border: 1px solid var(--border); background: var(--surface); }
 .validation-box h3 { font-size: 14px; margin-bottom: 8px; }
 .validation-red { border-color: #EF9A9A; background: #FFEBEE; color: #B71C1C; }
@@ -524,6 +530,7 @@ let state = {
   extraHolidays: [],
   members: [],
   ngDays: {},
+  ngReasons: {},
   schedule: null,
   stats: null,
   warnings: [],
@@ -542,8 +549,8 @@ function yearToGroup(year) { return year >= 2 ? "A" : "B"; }
 
 function initMembers() {
   state.members = [];
-  MEMBERS_A.forEach(n => state.members.push({ name: n, year: 2, weekdayTarget: 2, holidayTarget: 2, weekdayNightNg: {} }));
-  MEMBERS_B.forEach(n => state.members.push({ name: n, year: 1, weekdayTarget: 2, holidayTarget: 2, weekdayNightNg: {} }));
+  MEMBERS_A.forEach(n => state.members.push({ name: n, year: 2, weekdayTarget: 2, holidayTarget: 2, weekdayNightNg: {}, weekdayNightNgReasons: {} }));
+  MEMBERS_B.forEach(n => state.members.push({ name: n, year: 1, weekdayTarget: 2, holidayTarget: 2, weekdayNightNg: {}, weekdayNightNgReasons: {} }));
 }
 initMembers();
 
@@ -1674,7 +1681,7 @@ function addMember() {
   const year = parseInt(yearSelect.value) || 1;
   if (!name) { alert("名前を入力してください"); return; }
   if (state.members.some(m => m.name === name)) { alert(`「${name}」はすでに登録されています`); return; }
-  state.members.push({ name, year, weekdayTarget: 2, holidayTarget: 2, weekdayNightNg: {} });
+  state.members.push({ name, year, weekdayTarget: 2, holidayTarget: 2, weekdayNightNg: {}, weekdayNightNgReasons: {} });
   renderMemberTable();
   renderNGTable();
 }
@@ -1685,6 +1692,9 @@ function removeMember(idx) {
   // この人のNG日設定も合わせて削除
   Object.keys(state.ngDays).forEach(key => {
     if (key.startsWith(name + "_")) delete state.ngDays[key];
+  });
+  Object.keys(state.ngReasons || {}).forEach(key => {
+    if (key.startsWith(name + "_")) delete state.ngReasons[key];
   });
   state.members.splice(idx, 1);
   renderMemberTable();
@@ -1812,6 +1822,7 @@ function toggleNG(name, iso, dutyType, el) {
 
   if (next) state.ngDays[key] = next;
   else delete state.ngDays[key];
+  if (next !== "NG") delete state.ngReasons?.[key];
 
   el.className = "ng-cell " + cls;
   el.textContent = label;
@@ -2112,6 +2123,17 @@ function setNGValue(name, iso, type, value, source) {
   if (value) state.ngDays[key] = value;
   else delete state.ngDays[key];
 }
+function ngReasonKey(name, iso, type) {
+  return ngKey(name, new Date(iso + "T00:00:00"), type);
+}
+function getNGReason(name, iso, type) {
+  const member = memberByName(name);
+  const date = new Date(iso + "T00:00:00");
+  return state.ngReasons?.[ngReasonKey(name, iso, type)] || member?.weekdayNightNgReasons?.[weekdayKey(date)] || "";
+}
+function showNGReason(reason) {
+  if (reason) showToast(`NG理由: ${reason}`);
+}
 function clearSourceForMember(name, source, kind) {
   const suffix = source === "auto_prev" ? "_auto_prev" : "";
   Object.keys(state.ngDays).forEach(key => {
@@ -2124,6 +2146,7 @@ function clearSourceForMember(name, source, kind) {
 function normalizeCustomState() {
   state.ngInputs = state.ngInputs || {};
   state.hopeInputs = state.hopeInputs || {};
+  state.ngReasons = state.ngReasons || {};
   state.rawImportText = state.rawImportText || "";
   state.rawImportRows = state.rawImportRows || [];
   state.rawImportWarnings = state.rawImportWarnings || [];
@@ -2139,6 +2162,7 @@ function normalizeCustomState() {
     if (m.weekdayTarget === undefined || m.weekdayTarget === null) m.weekdayTarget = 2;
     if (m.holidayTarget === undefined || m.holidayTarget === null) m.holidayTarget = 2;
     m.weekdayNightNg = m.weekdayNightNg || {};
+    m.weekdayNightNgReasons = m.weekdayNightNgReasons || {};
     if (!state.ngInputs[m.name]) state.ngInputs[m.name] = "";
     if (!state.hopeInputs[m.name]) state.hopeInputs[m.name] = "";
     if (!state.previousInputs[m.name]) state.previousInputs[m.name] = "";
@@ -2331,6 +2355,9 @@ function applyBulkInputs() {
     allWarnings.push(...ngParsed.warnings, ...hopeParsed.warnings);
   });
   state.inputWarnings.bulk = allWarnings;
+  Object.keys(state.ngReasons || {}).forEach(key => {
+    if (state.ngDays[key] !== "NG") delete state.ngReasons[key];
+  });
   saveCurrentStateSilently();
   renderNGTable();
   if (state.schedule) { recalcStats(); renderShift(); }
@@ -3583,11 +3610,6 @@ function findRequestMember(rawName) {
   const contained = candidates.filter(candidate => candidate.alias && normalized.includes(candidate.alias));
   return new Set(contained.map(candidate => candidate.name)).size === 1 ? contained[0].name : "";
 }
-function stripRequestReasons(text) {
-  let result = text;
-  for (let i = 0; i < 3; i++) result = result.replace(/（[^（）]*）|\([^()]*\)/g, " ");
-  return result;
-}
 function resolveRequestDate(month, day) {
   return getDates().find(date => date.getMonth() + 1 === month && date.getDate() === day) || null;
 }
@@ -3601,6 +3623,7 @@ function requestDutyFromContext(context) {
 function requestRowIssues(row) {
   const issues = [];
   if (!row.memberName) issues.push("名前");
+  if (row.kind === "NG" && !String(row.reason || "").trim()) issues.push("NG理由を入力してください");
   if (row.rowType === "weekday") {
     if (!row.weekdays?.length) issues.push("曜日");
   } else {
@@ -3609,20 +3632,24 @@ function requestRowIssues(row) {
     if (row.iso) {
       const date = new Date(row.iso + "T00:00:00");
       if (date < state.startDate || date > state.endDate) issues.push("期間外");
-      if (row.duty === "day_duty" && !isHoliday(date)) issues.push("平日の日直");
     }
   }
   return issues;
 }
 function parseRequestSection(sectionText, kind, memberName, rawName) {
-  const cleaned = stripRequestReasons(sectionText);
+  const cleaned = String(sectionText || "");
   const rows = [];
   const weekdayPattern = /([日月火水木金土](?:\s*[、,・／/と]\s*[日月火水木金土])*)\s*(?:曜(?:日)?)?\s*(?:は|が)?[^。\n]{0,10}?当直\s*(?:×|x|X|不可|NG)/g;
-  let weekdayMatch;
-  while ((weekdayMatch = weekdayPattern.exec(cleaned))) {
-    const weekdays = [...new Set([...weekdayMatch[1]].filter(ch => WEEKDAY_JP.includes(ch)).map(ch => WEEKDAY_KEYS[WEEKDAY_JP.indexOf(ch)]))];
-    rows.push({ enabled: true, rowType: "weekday", memberName, rawName, kind: "NG", weekdays, duty: "night_duty", iso: "", source: weekdayMatch[0].trim() });
-  }
+  cleaned.split("\n").forEach(line => {
+    let weekdayMatch;
+    weekdayPattern.lastIndex = 0;
+    while ((weekdayMatch = weekdayPattern.exec(line))) {
+      const weekdays = [...new Set([...weekdayMatch[1]].filter(ch => WEEKDAY_JP.includes(ch)).map(ch => WEEKDAY_KEYS[WEEKDAY_JP.indexOf(ch)]))];
+      const colonIndex = line.search(/[:：]/);
+      const reason = kind === "NG" && colonIndex >= 0 ? line.slice(colonIndex + 1).trim() : "";
+      rows.push({ enabled: true, rowType: "weekday", memberName, rawName, kind: "NG", weekdays, duty: "night_duty", iso: "", reason, source: line.trim() });
+    }
+  });
   const datePattern = /(\d{1,2})\s*\/\s*(\d{1,2}(?:\s*[.・]\s*\d{1,2})*)/g;
   const matches = [];
   let match;
@@ -3630,25 +3657,30 @@ function parseRequestSection(sectionText, kind, memberName, rawName) {
   matches.forEach((item, matchIndex) => {
     const month = parseInt(item.match[1], 10);
     const days = item.match[2].split(/\s*[.・]\s*/).map(Number);
-    const nextIndex = matches[matchIndex + 1]?.index ?? cleaned.length;
-    const context = cleaned.slice(item.match.index + item.match[0].length, nextIndex).split(/[、,，。\n]/)[0].slice(0, 40);
-    const vacation = /有給|年休|休暇/.test(context);
-    const explicitDuty = requestDutyFromContext(context);
+    const afterDateIndex = item.match.index + item.match[0].length;
+    const lineEndIndex = cleaned.indexOf("\n", afterDateIndex);
+    const lineEnd = lineEndIndex < 0 ? cleaned.length : lineEndIndex;
+    const nextDateIndex = matches[matchIndex + 1]?.index ?? cleaned.length;
+    const segmentEnd = Math.min(lineEnd, nextDateIndex);
+    const context = cleaned.slice(afterDateIndex, segmentEnd).replace(/^[\s、,，。]+/, "").trim();
+    const colonIndex = context.search(/[:：]/);
+    const dutyContext = (colonIndex >= 0 ? context.slice(0, colonIndex) : context).trim();
+    const reason = kind === "NG" && colonIndex >= 0 ? context.slice(colonIndex + 1).replace(/^[\s、,，。]+|[\s、,，。]+$/g, "").trim() : "";
+    const vacation = kind === "NG" && /有給|年休|休暇/.test(`${dutyContext} ${reason}`);
+    const explicitDuty = requestDutyFromContext(dutyContext);
     days.forEach(day => {
       const date = resolveRequestDate(month, day);
-      let duty = explicitDuty;
-      if (vacation && date) duty = isHoliday(date) ? "both" : "night_duty";
-      if (!duty && date && !isHoliday(date)) duty = "night_duty";
+      const duty = explicitDuty || (date ? (isHoliday(date) ? "both" : "night_duty") : "");
       rows.push({
         enabled: true, rowType: "date", memberName, rawName, kind,
         weekdays: [], iso: date ? fmtISO(date) : "", duty,
-        source: `${month}/${day}${context ? " " + context.trim() : ""}`.trim(),
+        reason, source: `${month}/${day}${context ? " " + context : ""}`.trim(),
       });
       if (vacation && date) {
         const previous = new Date(date);
         previous.setDate(previous.getDate() - 1);
         if (previous >= state.startDate && previous <= state.endDate) {
-          rows.push({ enabled: true, rowType: "date", memberName, rawName, kind: "NG", weekdays: [], iso: fmtISO(previous), duty: "night_duty", source: `${month}/${day} 有給前日の当直` });
+          rows.push({ enabled: true, rowType: "date", memberName, rawName, kind: "NG", weekdays: [], iso: fmtISO(previous), duty: "night_duty", reason: `${month}/${day}の${reason || "有給"}に伴う前日当直`, source: `${month}/${day} 有給前日の当直` });
         }
       }
     });
@@ -3730,18 +3762,26 @@ function applyRawRequests() {
     return;
   }
   if (!selected.length) { showToast("反映する項目がありません"); return; }
+  const directUpdates = [];
   selected.forEach(row => {
     const member = memberByName(row.memberName);
     if (row.rowType === "weekday") {
       member.weekdayNightNg = member.weekdayNightNg || {};
-      row.weekdays.forEach(key => { member.weekdayNightNg[key] = true; });
+      member.weekdayNightNgReasons = member.weekdayNightNgReasons || {};
+      row.weekdays.forEach(key => {
+        member.weekdayNightNg[key] = true;
+        member.weekdayNightNgReasons[key] = row.reason.trim();
+      });
       return;
     }
     const date = new Date(row.iso + "T00:00:00");
-    const duties = row.duty === "both" ? (isHoliday(date) ? ["day_duty", "night_duty"] : ["night_duty"]) : [row.duty];
+    const duties = row.duty === "both" ? ["day_duty", "night_duty"] : [row.duty];
     duties.forEach(duty => {
       const field = row.kind === "NG" ? "ngInputs" : "hopeInputs";
-      state[field][row.memberName] = appendRequestToken(state[field][row.memberName], row.iso, duty);
+      if (duty !== "day_duty" || isHoliday(date)) {
+        state[field][row.memberName] = appendRequestToken(state[field][row.memberName], row.iso, duty);
+      }
+      directUpdates.push({ name: row.memberName, iso: row.iso, duty, kind: row.kind, reason: String(row.reason || "").trim() });
     });
   });
   const appliedCount = selected.length;
@@ -3750,6 +3790,14 @@ function applyRawRequests() {
   state.rawImportWarnings = [];
   state.rawImportUnknownNames = [];
   applyBulkInputs();
+  directUpdates.forEach(item => {
+    setNGValue(item.name, item.iso, item.duty, item.kind);
+    const key = ngReasonKey(item.name, item.iso, item.duty);
+    if (item.kind === "NG") state.ngReasons[key] = item.reason;
+    else delete state.ngReasons[key];
+  });
+  saveCurrentStateSilently();
+  renderNGTable();
   showToast(`${appliedCount}件をNG・希望休へ反映しました`);
 }
 function highlightRawImportNames(text, names) {
@@ -3771,6 +3819,73 @@ function pasteRawImportPlainText(event) {
   const text = event.clipboardData?.getData("text/plain") || "";
   document.execCommand("insertText", false, text);
 }
+const RAW_REQUEST_TEMPLATE = `①氏名（登録されている漢字名）
+②診療科・ローテーション
+③NG
+8/23：有給
+8/24 日直：他科の日直
+8/25 当直：発表前日
+8/26 日当直：学会参加
+月・火 当直×：定期カンファレンス
+④希望休
+8/27
+8/28 日直
+8/29 当直`;
+async function copyRawRequestTemplate() {
+  try {
+    await navigator.clipboard.writeText(RAW_REQUEST_TEMPLATE);
+  } catch (error) {
+    const textarea = document.createElement("textarea");
+    textarea.value = RAW_REQUEST_TEMPLATE;
+    textarea.style.position = "fixed";
+    textarea.style.opacity = "0";
+    document.body.appendChild(textarea);
+    textarea.select();
+    document.execCommand("copy");
+    textarea.remove();
+  }
+  showToast("固定書式をコピーしました");
+}
+function resetRawImport() {
+  state.rawImportText = "";
+  state.rawImportRows = [];
+  state.rawImportWarnings = [];
+  state.rawImportUnknownNames = [];
+  saveCurrentStateSilently();
+  renderRawImport();
+  showToast("原文入力をリセットしました");
+}
+function resetAllExceptMembers() {
+  if (!confirm("登録メンバーの氏名・年次を残し、期間・回数・NG・希望休・生成済みシフトなどをすべて初期化します。よろしいですか？")) return;
+  const members = state.members.map(member => ({
+    name: member.name,
+    year: member.year,
+    weekdayTarget: 2,
+    holidayTarget: 2,
+    weekdayNightNg: {},
+    weekdayNightNgReasons: {},
+  }));
+  state.swapHistory = [];
+  state.lastSwap = [];
+  state.manualMode = false;
+  state.manualSelection = null;
+  state.inputWarnings = {};
+  state.lastValidation = null;
+  applyObj({
+    startDate: new Date(2026, 7, 2).toISOString(),
+    endDate: new Date(2026, 7, 29).toISOString(),
+    extraHolidays: [], members, ngDays: {}, ngReasons: {}, ngInputs: {}, hopeInputs: {}, rawImportText: "",
+    previousInputs: {}, previousSelections: {}, previousWeekdayDayVisible: {}, bulkManagedKeys: [], pairNG: [],
+    schedule: null, stats: null, warnings: [],
+  });
+  ["history-area", "stats-result", "warnings-result", "swap-panel-area"].forEach(id => {
+    const element = document.getElementById(id);
+    if (element) element.innerHTML = "";
+  });
+  renderPairNGTable();
+  saveCurrentStateSilently();
+  showToast("登録メンバーを残して全体をリセットしました");
+}
 function renderRawImport() {
   normalizeCustomState();
   const wrap = document.getElementById("raw-import-wrap");
@@ -3779,13 +3894,14 @@ function renderRawImport() {
   const highlightedText = highlightRawImportNames(state.rawImportText || "", state.rawImportUnknownNames || []);
   let html = `<div class="summary-box raw-import-box"><strong>原文まとめ入力</strong>
     <div style="margin-top:4px;">①・❶・➊・1などの番号に対応しています。①名前・③NG・④希望休を含む文章を、複数人分まとめて貼り付けできます。</div>
-    <div id="raw-import-text" class="raw-import-editor" contenteditable="true" role="textbox" aria-multiline="true" data-placeholder="例：&#10;①馬場&#10;②小児科&#10;③9/26当直、9/27日当直&#10;④10/10、10/11日直&#10;&#10;❶山口&#10;❷整形外科&#10;❸月曜は当直×&#10;❹10/3当直" oninput="state.rawImportText=this.innerText" onpaste="pasteRawImportPlainText(event)">${highlightedText}</div>
-    <div class="raw-import-actions"><button class="btn btn-primary btn-sm" onclick="readRawRequests()">文章を読み取る</button><span style="font-size:12px;color:var(--text-muted);">名前は登録済みの漢字表記で入力／複数人まとめて可</span></div>`;
+    <div class="raw-import-guide">NGは『日付・勤務：理由』で入力してください。勤務の記載がない場合、休日は日直＋当直、平日は当直として読み取ります。</div>
+    <div id="raw-import-text" class="raw-import-editor" contenteditable="true" role="textbox" aria-multiline="true" data-placeholder="固定書式を貼り付けてください。複数人の場合は、次の①から続けて入力できます。" oninput="state.rawImportText=this.innerText" onpaste="pasteRawImportPlainText(event)">${highlightedText}</div>
+    <div class="raw-import-actions"><button class="btn btn-primary btn-sm" onclick="readRawRequests()">文章を読み取る</button><button class="btn btn-outline btn-sm" onclick="copyRawRequestTemplate()">固定書式をコピー</button><button class="btn btn-outline btn-sm" onclick="resetRawImport()">入力をリセット</button><button class="btn btn-outline btn-sm" style="color:#B71C1C;border-color:#EF9A9A;" onclick="resetAllExceptMembers()">全体をリセット</button><span style="font-size:12px;color:var(--text-muted);">名前は登録済みの漢字表記で入力／複数人まとめて可</span></div>`;
   if (state.rawImportWarnings?.length) html += `<div class="input-warning">${state.rawImportWarnings.map(warning => `▶ ${escapeHTML(warning)}`).join("<br>")}</div>`;
   if (rows.length) {
     const ready = rows.filter(row => !requestRowIssues(row).length).length;
     html += `<div class="raw-import-result"><div style="margin-bottom:6px;"><strong>読み取り結果 ${rows.length}件</strong>（確認済み ${ready}／要確認 ${rows.length - ready}）</div>
-      <table class="raw-import-table"><thead><tr><th>反映</th><th>名前</th><th>区分</th><th>日付・曜日</th><th>勤務</th><th>読み取った部分</th><th>状態</th></tr></thead><tbody>`;
+      <table class="raw-import-table"><thead><tr><th>反映</th><th>名前</th><th>区分</th><th>日付・曜日</th><th>勤務</th><th>NG理由</th><th>読み取った部分</th><th>状態</th></tr></thead><tbody>`;
     rows.forEach((row, index) => {
       const issues = requestRowIssues(row);
       const kindOptions = ["NG", "希望休"].map(kind => `<option value="${kind}" ${kind === row.kind ? "selected" : ""}>${kind}</option>`).join("");
@@ -3794,12 +3910,16 @@ function renderRawImport() {
       const dateCell = row.rowType === "weekday"
         ? `毎週 ${(row.weekdays || []).map(key => WEEKDAY_JP[WEEKDAY_KEYS.indexOf(key)]).join("・")}曜`
         : `<input type="date" value="${escapeAttr(row.iso || "")}" onchange="updateRawImportRow(${index},'iso',this.value)">`;
+      const reasonCell = row.kind === "NG"
+        ? `<input class="raw-import-reason" type="text" value="${escapeAttr(row.reason || "")}" placeholder="NG理由を入力してください" oninput="state.rawImportRows[${index}].reason=this.value" onchange="updateRawImportRow(${index},'reason',this.value)">`
+        : `<span style="color:var(--text-muted);">不要</span>`;
       html += `<tr class="${issues.length ? "needs-review" : ""}">
         <td><input type="checkbox" ${row.enabled ? "checked" : ""} onchange="updateRawImportRow(${index},'enabled',this.checked)"></td>
         <td>${row.memberName ? `<strong>${escapeHTML(row.memberName)}</strong>` : `<span class="input-warning">入力欄の「${escapeHTML(row.rawName || "名前なし")}」を漢字名に修正</span>`}</td>
         <td><select onchange="updateRawImportRow(${index},'kind',this.value)" ${row.rowType === "weekday" ? "disabled" : ""}>${kindOptions}</select></td>
         <td>${dateCell}</td>
         <td>${row.rowType === "weekday" ? "当直" : `<select onchange="updateRawImportRow(${index},'duty',this.value)">${dutyOptions}</select>`}</td>
+        <td>${reasonCell}</td>
         <td class="raw-import-source">${escapeHTML(row.source)}</td>
         <td><span class="raw-import-status ${issues.length ? "review" : "ok"}">${issues.length ? `要確認: ${issues.join("・")}` : "確認済み"}</span></td>
       </tr>`;
@@ -3852,7 +3972,10 @@ function toggleWeekdayNightNg(name, key, checked) {
   if (!member) return;
   member.weekdayNightNg = member.weekdayNightNg || {};
   if (checked) member.weekdayNightNg[key] = true;
-  else delete member.weekdayNightNg[key];
+  else {
+    delete member.weekdayNightNg[key];
+    delete member.weekdayNightNgReasons?.[key];
+  }
   renderNGTable();
   if (state.schedule) { recalcStats(); renderShift(); }
 }
@@ -3931,7 +4054,8 @@ function renderNGTable() {
   html += '</tr></thead><tbody>';
   dates.forEach(dt => {
     const hol = isHoliday(dt);
-    const rows = hol ? ["day_duty","night_duty"] : ["night_duty"];
+    const hasExplicitWeekdayDay = !hol && state.members.some(member => !!state.ngDays[ngKey(member.name, dt, "day_duty")]);
+    const rows = hol || hasExplicitWeekdayDay ? ["day_duty","night_duty"] : ["night_duty"];
     rows.forEach((type, rowIdx) => {
       const iso = fmtISO(dt);
       html += `<tr${hol ? ' class="weekend"' : ""}>`;
@@ -3942,12 +4066,16 @@ function renderNGTable() {
         const auto = state.ngDays[ngKey(m.name, dt, type) + "_auto_prev"] || "";
         const weekdayReason = weekdayNightNgLabel(m.name, dt, type);
         const val = auto || normal || (weekdayReason ? "NG" : "");
+        const reason = val === "NG" ? getNGReason(m.name, iso, type) : "";
         let cls = "", label = "ー";
         if (auto === "NG") { cls = "val-ng"; label = "前回NG"; }
         else if (weekdayReason) { cls = "val-ng"; label = "曜日NG"; }
         else if (val === "NG") { cls = "val-ng"; label = "NG"; }
         else if (val === "希望休") { cls = "val-hope"; label = "希望休"; }
-        html += `<td><div class="ng-cell ${cls}" onclick="toggleNG('${m.name}','${iso}','${type}',this)">${label}</div></td>`;
+        const reasonClass = reason ? " has-reason" : "";
+        const reasonAttrs = reason ? ` tabindex="0" title="NG理由: ${escapeAttr(reason)}" data-reason="${escapeAttr(reason)}"` : "";
+        const reasonMark = reason ? `<span class="ng-reason-mark" data-reason="${escapeAttr(reason)}" onclick="event.stopPropagation();showNGReason(this.dataset.reason)" aria-label="NG理由を表示">i</span>` : "";
+        html += `<td><div class="ng-cell ${cls}${reasonClass}"${reasonAttrs} onclick="toggleNG('${m.name}','${iso}','${type}',this)">${label}${reasonMark}</div></td>`;
       });
       html += '</tr>';
     });
@@ -4063,8 +4191,10 @@ function stateToObj() {
       weekdayTarget: m.weekdayTarget,
       holidayTarget: m.holidayTarget,
       weekdayNightNg: m.weekdayNightNg || {},
+      weekdayNightNgReasons: m.weekdayNightNgReasons || {},
     })),
     ngDays: state.ngDays,
+    ngReasons: state.ngReasons,
     ngInputs: state.ngInputs,
     hopeInputs: state.hopeInputs,
     rawImportText: state.rawImportText,
@@ -4089,6 +4219,7 @@ function applyObj(obj) {
     weekdayTarget: m.weekdayTarget ?? 2,
     holidayTarget: m.holidayTarget ?? 2,
     weekdayNightNg: m.weekdayNightNg || {},
+    weekdayNightNgReasons: m.weekdayNightNgReasons || {},
   }));
   (obj.bulkManagedWeekdayNg || []).forEach(token => {
     const [name, key] = String(token).split("|");
@@ -4096,6 +4227,7 @@ function applyObj(obj) {
     if (member?.weekdayNightNg) delete member.weekdayNightNg[key];
   });
   state.ngDays = obj.ngDays || {};
+  state.ngReasons = obj.ngReasons || {};
   state.ngInputs = obj.ngInputs || {};
   state.hopeInputs = obj.hopeInputs || {};
   state.rawImportText = obj.rawImportText || "";
